@@ -9,12 +9,18 @@
 class HeaderFormatError(Exception):
     pass
 
-class NotSupportMethod(Exception):
-    status_code = 405
+class HTTPError(Exception):
+    def __init__(self, status_code, status_mess=None):
+        self.status_code = status_code
+        self.status_mess = status_mess
+        super(HTTPError, self).__init__()
+
 
 class ErrorStatusCode(Exception):
     pass
 
 class MissArgument(Exception):
     pass
+
+NotSupportMethod = HTTPError(405)
 

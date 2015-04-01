@@ -21,6 +21,7 @@ class IOSocket():
         self._request_data = _data
 
     def close(self):
+        self._socket.shutdown(socket.SHUT_RDWR)
         self._socket.close()
 
     def send_string(self, string):
@@ -31,7 +32,7 @@ class StreamServer(object):
         self._socket = socket.socket(socket.AF_INET, 
                 socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, 
-                socket.SO_REUSEADDR, 1)
+                socket.SO_REUSEADDR, reuse_add)
         self._socket.bind(listen_add)
         self._socket.listen(max_client)
         self._callback = callback
@@ -39,8 +40,10 @@ class StreamServer(object):
     def serve_forever(self):
         while True:
             try:
-                socket, addr = self._socket.accept()
-                gevent.spawn(self._callback, socket, addr).link_exception(self.raise_error)
+                s, addr = self._socket.accept()
+                s.setsockopt(socket.SOL_SOCKET, 
+                    socket.SO_REUSEADDR, 1)
+                gevent.spawn(self._callback, s, addr).link_exception(self.raise_error)
             except Exception as e:
                 socket.close()
 

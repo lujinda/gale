@@ -27,8 +27,11 @@ class HTTPConnection(IOSocket):
         """同send_headers"""
         self.send_string(body_string)
 
+    def remote_ip(self):
+        return self._socket.getpeername()[0]
+
 class HTTPRequest():
-    def __init__(self, method, uri, version, headers, body, connection):
+    def __init__(self, method, uri, version, headers, body, connection, real_ip = True):
         self.method = method
         self.uri = uri
         self.version = version
@@ -39,6 +42,17 @@ class HTTPRequest():
         self.query = _urlparse.query
         self.connection = connection
         self._start_time = time()
+        self.real_ip = real_ip
+
+    @property
+    def client_ip(self):
+        if self.real_ip:
+            _remote_ip = self.headers.get("X-Real-IP", 
+                self.headers.get("X-Forwarded-For", self.connection.remote_ip()))
+        else:
+            _remote_ip = self.connection.remote_ip()
+
+        return _remote_ip
 
     @property
     def request_time(self):
@@ -88,7 +102,7 @@ class HTTPHeaders(dict):
 
         return _headers_string + CRLF * 2
 
-def get_request(socket):
+def get_request(socket, real_ip=True):
     """在刚连接时，获取用户的http请求信息"""
     connection = HTTPConnection(socket)
     _first_line, _headers, _body = connection.parse_request_all() # 把收到的信息分析出来
@@ -96,5 +110,5 @@ def get_request(socket):
     method , uri, version = map(lambda s: s.strip(), _first_line.split())
 
     return HTTPRequest(method = method, uri = uri, version = version,
-            headers = headers, body = _body, connection = connection)
+            headers = headers, body = _body, connection = connection, real_ip = real_ip)
 
