@@ -103,8 +103,10 @@ class HTTPHeaders(dict):
         return _headers_string + CRLF * 2
 
 def get_request(socket, real_ip=True):
-    """在刚连接时，获取用户的http请求信息"""
+    """在刚连接时，获取用户的http请求信息, socket是客户端的socket"""
     connection = HTTPConnection(socket)
+    if connection.is_close(): # 如果连接出错而被关闭，则返回 False，立刻结束本此请求
+        return False
     _first_line, _headers, _body = connection.parse_request_all() # 把收到的信息分析出来
     headers = HTTPHeaders(_headers) # 这是http headers信息，类型是dict
     method , uri, version = map(lambda s: s.strip(), _first_line.split())

@@ -11,8 +11,8 @@ from cyclone.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
 from cyclone.utils import code_mess_map # 存的是http响应代码与信息的映射关系
 from cyclone.escape import utf8
 from cyclone.log import access_log, config_logging
+from cyclone.template import Env
 import traceback
-import re
 
 try:
     import urlparse # py2
@@ -38,6 +38,7 @@ class RequestHandler():
     def init_data(self):
         """一些初始化工作都可以在这做"""
         pass
+
     def init_headers(self): 
         self.set_headers({
             'Content-Type'  :       'text/plain; charset=utf-8',
@@ -71,6 +72,40 @@ class RequestHandler():
         self.set_status(status_code)
 
         self.set_header('Location', urlparse.urljoin(utf8(self.request.uri), utf8(url)))
+
+    def render(self, template_name, **kwargs):
+        if self.is_finished:
+            return False
+        render_string = self.render_string(template_name, **kwargs)
+
+        self.set_header('Content-Type', 'text/html;charset=UTF-8')
+        self.push(render_string)
+
+
+    def render_string(self, template_name, **kwargs):
+        _template = self.application._template_cache.get(template_name)
+        if not _template:
+            _template = self.template_env.get_template(template_name)
+            self.application._template_cache[template_name] = _template
+
+        name_space = self.get_name_space()
+        kwargs.update(name_space)
+
+        return _template.render(**kwargs)
+
+    def get_name_space(self):
+        """一些可以在模块中用的变量或方法"""
+        name_space = {
+                'client_ip' :   self.client_ip,
+                'handler'   :   self,
+                'request'   :   self.request, 
+                }
+
+        return name_space
+
+    @property
+    def template_env(self):
+        return self.application.template_env
 
     @property
     def is_finished(self):
@@ -205,16 +240,22 @@ class ErrorHandler(RequestHandler):
 
 
 class Application(object):
-    def __init__(self, handlers, settings = {}, log_settings = {}):
+    _template_cache = {}
+
+    def __init__(self, handlers, settings = {}, log_settings = {}, template_settings = {}):
         """
         log_settings : {'level': log level(default: DEBUG'
                 'datefmt': log date format(default: "%Y-%m-%d %H:%M:%S")}
+        template_settings: {'path': 'xxx'...} like jinja env
         """
         self.handlers = self.__re_compile(handlers) # 将正则规则先编译了，加快速度
         self.settings = settings
         config_logging(log_settings)
+        self.template_env = Env(template_settings)
 
     def __re_compile(self, handlers):
+        """把正则规则都编译了，加快速度"""
+        import re
         _handlers = []
         for url_re, url_handler in handlers:
             url_re = "%s%s%s" % ((not url_re.startswith('^')) and '^' or '', 
@@ -226,6 +267,8 @@ class Application(object):
     def __call__(self, socket, address):
         request = get_request(socket, 
                 real_ip = self.settings.get('real_ip', True)) # 获取一个request，这里面有跟请求数据有关的东西
+        if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
+            return
 
         handler, args, kwargs = self.__find_handler(request)
         try:

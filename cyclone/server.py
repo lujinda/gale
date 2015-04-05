@@ -9,6 +9,7 @@ from __future__ import unicode_literals, print_function
 
 import gevent
 from cyclone.socket import StreamServer
+from multiprocessing import Pool, cpu_count, Process
 
 class HTTPServer(object):
     """
@@ -24,15 +25,47 @@ class HTTPServer(object):
         self.max_client = max_client 
 
     def listen(self, listen_add):
-        self.listen_add = listen_add
+        host = listen_add[0]  or '0.0.0.0'
+        port = listen_add[1]
+        self.listen_add = (host, port)
 
-    def run(self, listen_add = None):
+    def run(self, listen_add = None, processes = 1):
+        _server = self.__made_server(listen_add)
+        if processes == 1: # 如果process值为1表示在主进程中执行
+            self.__print_run_msg()
+            _server.serve_forever()
+        else:
+            self.multi_run(server = _server, processes = processes)
+
+
+    def __print_run_msg(self, processes = None):
+        mess = "listen: http://%s:%s" % self.listen_add
+        if processes:
+            mess += ' processes: %d' % processes
+
+        print(mess)
+
+    def multi_run(self, server = None, processes = None):
+        _server = server or self.__made_server()
+        run_pool = []
+        processes = processes or cpu_count() #  在此方法中，如未指定processes则是表示以cpu核数为限定
+        for i in range(processes):
+            p = Process(target = _server.serve_forever)
+            run_pool.append(p)
+
+        for p in run_pool: # 启动所有进程
+            p.start()
+
+        self.__print_run_msg(processes)
+
+        for p in run_pool: # 等待
+            p.join()
+
+    def __made_server(self, listen_add = None):
         if isinstance(listen_add, (tuple, list)):
             self.listen(listen_add)
-        _server = StreamServer(self.listen_add, self._callback, 
+        return StreamServer(self.listen_add, self._callback, 
                 max_client = self.max_client)
-        #_server.stop_timeout = self.stop_timeout
-        _server.serve_forever()
 
     @property
     def port(self):

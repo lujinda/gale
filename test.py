@@ -29,7 +29,7 @@ def contorl_access(method):
 
 class IndexHandler(RequestHandler):
     def GET(self, path = '/'):
-        self.push(u'您访问的路径是 %s ' % path)
+        self.render('index.html')
 
     @property
     def db(self):
@@ -38,7 +38,7 @@ class IndexHandler(RequestHandler):
 class DemoApplication(Application):
     def __init__(self):
         handlers = [
-                (r'/test/(\w+)', IndexHandler),
+                (r'/(\w+)', IndexHandler),
                 ]
 
         settings = {
@@ -50,6 +50,7 @@ class DemoApplication(Application):
                 'level':    'DEBUG',
                 }
 
+
         self.db = Redis()
 
         super(DemoApplication, self).__init__(handlers, 
@@ -57,5 +58,5 @@ class DemoApplication(Application):
 
 server = HTTPServer(DemoApplication())
 server.listen(('', 8000))
-server.run()
+server.multi_run()
 
