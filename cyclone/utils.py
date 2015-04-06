@@ -7,6 +7,8 @@
 # Description     : 
 import sys
 from urlparse import urlsplit
+import email.utils
+import time
 
 is_py3 = sys.version[0] == '3'
 
@@ -63,3 +65,9 @@ code_mess_map = {
             504: 'Gateway Timeout',
             505: 'HTTP Version Not Supported'
             }
+
+def format_timestamp(ts = None):
+    if not ts:
+        ts = time.time()
+    return email.utils.formatdate(ts, usegmt = True)
+

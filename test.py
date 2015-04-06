@@ -58,5 +58,5 @@ class DemoApplication(Application):
 
 server = HTTPServer(DemoApplication())
 server.listen(('', 8000))
-server.multi_run()
+server.run(processes = 4)
 

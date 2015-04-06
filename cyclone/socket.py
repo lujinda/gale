@@ -41,7 +41,7 @@ class IOSocket():
             return True
 
 class StreamServer(object):
-    def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True):
+    def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True, timeout = 60):
         self._socket = socket.socket(socket.AF_INET, 
                 socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, 
@@ -49,6 +49,7 @@ class StreamServer(object):
         self._socket.bind(listen_add)
         self._socket.listen(max_client)
         self._callback = callback
+        self.timeout = timeout
 
     def serve_forever(self):
         while True:
@@ -56,9 +57,10 @@ class StreamServer(object):
                 s, addr = self._socket.accept()
                 s.setsockopt(socket.SOL_SOCKET, 
                     socket.SO_REUSEADDR, 1)
+                s.settimeout(self.timeout) # 设置客户端的超时时间
                 gevent.spawn(self._callback, s, addr).link_exception(self.raise_error)
             except Exception as e:
-                socket.close()
+                s.close()
 
     def raise_error(self, g):
         g.kill()

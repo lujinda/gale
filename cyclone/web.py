@@ -8,7 +8,7 @@
 from __future__ import unicode_literals, print_function
 from cyclone.http import get_request, HTTPHeaders
 from cyclone.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
-from cyclone.utils import code_mess_map # 存的是http响应代码与信息的映射关系
+from cyclone.utils import code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from cyclone.escape import utf8
 from cyclone.log import access_log, config_logging
 from cyclone.template import Env
@@ -43,6 +43,7 @@ class RequestHandler():
         self.set_headers({
             'Content-Type'  :       'text/plain; charset=utf-8',
             'Server'        :       'tuxpy server',
+            'Date'          :       format_timestamp(),
             })
         self.set_status(200)
 
