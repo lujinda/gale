@@ -23,7 +23,6 @@ def contorl_access(method):
 
         if _num == 1: # 如果是第一次访问，则设置过期时间
             self.db.expire(_ip, 5)
-
         return method(self, *args, **kwargs)
     return wrap
 

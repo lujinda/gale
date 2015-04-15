@@ -176,13 +176,13 @@ class RequestHandler():
 
     def raise_error(self, e):
         """当出现错误的时候会被调用"""
-        _static_code = getattr(e, 'status_code', 500)
-        _static_mess = getattr(e, 'status_mess', None)
-        self.push_error(_static_code, _static_mess, e) # 调用错误处理函数
+        _status_code = getattr(e, 'status_code', 500)
+        _status_mess = getattr(e, 'status_mess', None)
+        self.set_status(_status_code, _status_mess)
+        self.push_error() # 调用错误处理函数
 
-    def push_error(self, status_code = 500, status_mess = None, e = None):
+    def push_error(self):
         """处理http异常错误"""
-        self.set_status(status_code, status_mess)
         self.send_error(traceback.format_exc())
 
     def send_error(self, exc):
@@ -191,8 +191,11 @@ class RequestHandler():
         if not self.settings.get('debug', False): # 只允许 在debug情况下输出错误
             return
 
-        self.push(exc)
-        self.push('\n' + self.__response_first_line)
+        if self.get_status() >= 500:
+            self.push(exc + '\n')
+        else:
+            traceback.sys.exc_clear()
+        self.push(self.__response_first_line)
 
     
     @property
@@ -276,7 +279,8 @@ class Application(object):
             self.__exec_request(handler, request, *args, **kwargs)
         except Exception as e:
             handler.raise_error(e) # 把异常传入，并分析，执行错误处理方法(push_error)
-            traceback.print_exc()
+            if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
+                traceback.print_exc()
         finally:
             handler.finish()
 
