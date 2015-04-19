@@ -18,7 +18,25 @@ class HTTPConnection(IOSocket):
         """从原始数据中提取头信息"""
         _headers, _body  = (self._request_data.split(CRLF * 2, 1)  + [''])[:2] # 可能body没有，就变成 ''
         _first_line, _headers = (_headers.split(CRLF, 1) +  [''])[:2]
+        self._request_data = ''
         return _first_line, _headers, _body
+
+    def get_request(self, callback):
+        """获取用户的请求信息，并可以成功取得一个http请求时，生成一个HTTPRequest, 并激活回调函数(application的__call__)"""
+        while True and self.closed == False:
+            _data = self._socket.recv(self._buff)
+            if not _data:
+                self.close()
+                break
+            self._request_data += _data
+
+            if CRLF * 2 in self._request_data: # 如果当前数据已经够构成一个http头信息了，则开始激活回调了
+                if not self._request_data.strip(): # 如果是个空请求的话，则关闭
+                    self.close()
+                    break
+                request = get_request(self)
+                callback(request)
+
 
     def send_headers(self, headers_string):
         """headers_string是已经被处理过了的头信息，直接写入就行"""
@@ -27,6 +45,7 @@ class HTTPConnection(IOSocket):
     def send_body(self, body_string):
         """同send_headers"""
         self.send_string(body_string)
+        self.send_string(CRLF)
 
     def remote_ip(self):
         return self._socket.getpeername()[0]
@@ -121,9 +140,8 @@ class HTTPHeaders(dict):
 
         return _headers_string + CRLF * 2
 
-def get_request(socket, real_ip=True):
+def get_request(connection, real_ip=True):
     """在刚连接时，获取用户的http请求信息, socket是客户端的socket"""
-    connection = HTTPConnection(socket)
     if connection.is_close(): # 如果连接出错而被关闭，则返回 False，立刻结束本此请求
         return False
     try:

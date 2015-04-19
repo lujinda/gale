@@ -6,7 +6,7 @@
 # Filename        : cyclone/web.py
 # Description     : 
 from __future__ import unicode_literals, print_function
-from cyclone.http import get_request, HTTPHeaders
+from cyclone.http import  HTTPHeaders
 from cyclone.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
 from cyclone.utils import code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from cyclone.escape import utf8
@@ -67,7 +67,10 @@ class RequestHandler():
         _buffer = utf8(_buffer)
         self._push_buffer.append(_buffer)
 
-    def redirect(self, url, status_code = 301):
+    def redirect(self, url, temp = True, status_code = None):
+        if not status_code:
+            status_code = temp and 302 or 301 # 如果没有指定 status_code， 则根据是否是临时重定向来决定code
+
         if bool(self._push_buffer):
             raise Exception("Can't redirect after push")
         assert isinstance(status_code ,int) and (300 <= status_code <= 399)
@@ -154,7 +157,8 @@ class RequestHandler():
         self.on_finish()
         if not self.is_finished:
             self.flush()
-        if (not self.request.is_keep_alive()) or (self.get_status() >= 400): # 如果不是保持连接的话，关闭当前会话。或者出错了，也关闭链接
+
+        if not self.request.is_keep_alive():
             self.request.connection.close()
             self._finished = True
     
@@ -268,11 +272,11 @@ class Application(object):
 
         return _handlers
 
-    def __call__(self, socket, address):
-        request = get_request(socket, 
-                real_ip = self.settings.get('real_ip', True)) # 获取一个request，这里面有跟请求数据有关的东西
+    def __call__(self, request):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
             return
+
+        request.real_ip = self.settings.get('real_ip', True) # 设定是否要获取真实ip地址
 
         handler, args, kwargs = self.__find_handler(request)
         try:

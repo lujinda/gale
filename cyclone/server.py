@@ -8,7 +8,7 @@
 from __future__ import unicode_literals, print_function
 
 import gevent
-from cyclone.socket import StreamServer
+from cyclone.stream import StreamServer
 from multiprocessing import  cpu_count, Process
 
 class HTTPServer(object):

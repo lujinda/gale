@@ -34,9 +34,15 @@ class IndexHandler(RequestHandler):
     def db(self):
         return self.application.db
 
+
+class LoginHandler(RequestHandler):
+    def GET(self):
+        self.redirect('/test')
+
 class DemoApplication(Application):
     def __init__(self):
         handlers = [
+                (r'/login', LoginHandler),
                 (r'/(\w+)', IndexHandler),
                 ]
 
