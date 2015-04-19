@@ -22,5 +22,8 @@ class ErrorStatusCode(Exception):
 class MissArgument(Exception):
     pass
 
+class NotSupportHttpVersion(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

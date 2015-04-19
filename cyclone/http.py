@@ -6,19 +6,20 @@
 # Filename        : cyclone/http.py
 # Description     : 
 from cyclone.config import CRLF
-from cyclone.e import HeaderFormatError
+from cyclone.e import HeaderFormatError, NotSupportHttpVersion
 from cyclone.utils import urlsplit, urldecode 
 from cyclone.socket import IOSocket
-from cyclone.config import CRLF
+import traceback
 from time import time
+import re
 
 class HTTPConnection(IOSocket):
     def parse_request_all(self):
         """从原始数据中提取头信息"""
-        _headers, _body  = self._request_data.split(CRLF * 2, 1)
-        _first_line, _headers = _headers.split(CRLF, 1)
+        _headers, _body  = (self._request_data.split(CRLF * 2, 1)  + [''])[:2] # 可能body没有，就变成 ''
+        _first_line, _headers = (_headers.split(CRLF, 1) +  [''])[:2]
         return _first_line, _headers, _body
-    
+
     def send_headers(self, headers_string):
         """headers_string是已经被处理过了的头信息，直接写入就行"""
         self.send_string(headers_string)
@@ -35,6 +36,7 @@ class HTTPRequest():
         self.method = method
         self.uri = uri
         self.version = version
+        self.version_num = self.__version_num()
         self.headers = headers
         self.body = body
         _urlparse = urlsplit(self.uri)
@@ -43,6 +45,23 @@ class HTTPRequest():
         self.connection = connection
         self._start_time = time()
         self.real_ip = real_ip
+
+    def __version_num(self):
+        _version_num = self.version.split('/', 1)[1]
+        if not re.match(r'^1\.[01]$', _version_num):
+            raise NotSupportHttpVersion
+
+        return _version_num
+
+    def is_keep_alive(self):
+        _connection_param = self.headers.get('Connection', '').lower()
+        if _connection_param:
+            return _connection_param.lower() != 'close'
+
+        if self.version_num == '1.1': # 如果http版本是1.1默认是保持连接的
+            return True
+
+        return False
 
     @property
     def client_ip(self):
@@ -107,10 +126,13 @@ def get_request(socket, real_ip=True):
     connection = HTTPConnection(socket)
     if connection.is_close(): # 如果连接出错而被关闭，则返回 False，立刻结束本此请求
         return False
-    _first_line, _headers, _body = connection.parse_request_all() # 把收到的信息分析出来
-    headers = HTTPHeaders(_headers) # 这是http headers信息，类型是dict
-    method , uri, version = map(lambda s: s.strip(), _first_line.split())
-
-    return HTTPRequest(method = method, uri = uri, version = version,
+    try:
+        _first_line, _headers, _body = connection.parse_request_all() # 把收到的信息分析出来
+        headers = HTTPHeaders(_headers) # 这是http headers信息，类型是dict
+        method , uri, version = map(lambda s: s.strip(), _first_line.split())
+        return HTTPRequest(method = method, uri = uri, version = version,
             headers = headers, body = _body, connection = connection, real_ip = real_ip)
+    except Exception as e:
+        connection.close()
+        traceback.print_exc()
 

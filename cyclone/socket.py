@@ -9,19 +9,29 @@ from __future__ import unicode_literals
 from cyclone.escape import param_encode
 import gevent
 from gevent import socket
+from cyclone.config import CRLF
 
 class IOSocket():
     def __init__(self, socket, max_buff= 4096):
         self._socket = socket
         self._buff = max_buff
         self.closed = False
-        gevent.spawn(self.__all_recv).join() # 从用户那接受到的所有数据，还没经过处理的
+        self._request_data = ''
+        g = gevent.spawn(self.__all_recv)# 从用户那接受到的所有数据，还没经过处理的
+        g.link_exception(self.__gevent_exception) 
+        g.join()
+
 
     def __all_recv(self):
-        _data = self._socket.recv(self._buff)
-        if not _data:
-            self.close()
-        self._request_data = _data
+        while self._request_data.count(CRLF) < 2:
+            _data = self._socket.recv(self._buff)
+            if not _data:
+                self.close()
+                break
+            self._request_data += _data
+
+    def __gevent_exception(self, *args, **kwargs):
+        self.close()
 
     def close(self):
         self._socket.shutdown(socket.SHUT_RDWR)
@@ -41,7 +51,7 @@ class IOSocket():
             return True
 
 class StreamServer(object):
-    def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True, timeout = 60):
+    def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True, timeout = 15):
         self._socket = socket.socket(socket.AF_INET, 
                 socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, 

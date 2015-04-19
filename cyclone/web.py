@@ -44,6 +44,7 @@ class RequestHandler():
             'Content-Type'  :       'text/plain; charset=utf-8',
             'Server'        :       'tuxpy server',
             'Date'          :       format_timestamp(),
+            'Connection'    :       self.request.is_keep_alive() and 'Keep-Alive' or 'Keep-Alive',
             })
         self.set_status(200)
 
@@ -153,10 +154,9 @@ class RequestHandler():
         self.on_finish()
         if not self.is_finished:
             self.flush()
-        
-        self.request.connection.close()
-        self._finished = True
-
+        if (not self.request.is_keep_alive()) or (self.get_status() >= 400): # 如果不是保持连接的话，关闭当前会话。或者出错了，也关闭链接
+            self.request.connection.close()
+            self._finished = True
     
     def set_header(self, name, value):
         self._headers[name] = value
