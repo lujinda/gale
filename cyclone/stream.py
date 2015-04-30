@@ -10,6 +10,7 @@ from gevent import socket
 import gevent
 from cyclone.escape import param_encode
 from cyclone.http import HTTPConnection
+import sys
 
 class StreamServer(object):
     def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True, timeout = 15):

@@ -9,7 +9,7 @@ from cyclone.config import CRLF
 from cyclone.e import HeaderFormatError, NotSupportHttpVersion
 from cyclone.utils import urlsplit, urldecode 
 from cyclone.socket import IOSocket
-import traceback
+from gevent import socket
 from time import time
 import re
 
@@ -24,7 +24,11 @@ class HTTPConnection(IOSocket):
     def get_request(self, callback):
         """获取用户的请求信息，并可以成功取得一个http请求时，生成一个HTTPRequest, 并激活回调函数(application的__call__)"""
         while True and self.closed == False:
-            _data = self._socket.recv(self._buff)
+            try:
+                _data = self._socket.recv(self._buff)
+            except socket.timeout: # socket超时的异步不报出
+                _data = None
+
             if not _data:
                 self.close()
                 break
@@ -64,6 +68,19 @@ class HTTPRequest():
         self.connection = connection
         self._start_time = time()
         self.real_ip = real_ip
+        self.cookies = self.__get_cookies()
+
+    def __get_cookies(self):
+        _cookies = {}
+        _cookies_string = self.headers.get('Cookie', '')
+        if not _cookies_string:
+            return {}
+
+        _cookies_list = [_cookie_string.split('=', 1) for _cookie_string in  _cookies_string.split(';')]
+        for _cookie_name, _cookie_value in _cookies_list:
+            _cookies[_cookie_name.strip()] = _cookie_value.strip()
+
+        return _cookies
 
     def __version_num(self):
         _version_num = self.version.split('/', 1)[1]
@@ -110,35 +127,60 @@ class HTTPRequest():
 
 class HTTPHeaders(dict):
     def __init__(self, headers=None):
+        dict.__init__(self)
         headers = headers or {}
+        self._headers_map_list = {} # 数据格式: {name: [value1, value2,...]}
 
-        if not isinstance(headers, dict):
+        if not isinstance(headers, dict): # 如果传入的headers不是字典，表示这是请求headers，则调用dict原有的__setitem__ 将头信息传进去，如果传入是dict，则表示是响应头，则需要处理一下，比如同域名的，但是不同域值要放一块
             headers = self.__parse_headers(headers)
+            for _k, _v in headers.items():
+                dict.__setitem__(self, _k, _v)
 
         for _k, _v in headers.items():
             self[_k] = _v
 
+
     def __parse_headers(self, headers):
         """把http头信息组织到一个字典中去"""
         _headers = {}
+        _last_key = None
         assert not isinstance(headers, dict)
-        for header_line in headers.split(CRLF):
-            if ':' not in header_line: # 如果':' 不在某一条header中，则表示这个 header有错的
-                raise HeaderFormatError 
-            _header_name, _header_value = header_line.split(':', 1)
+        for header_line in headers.split('\n'):
+            header_line = header_line.rstrip('\r')
+            if header_line.startswith('\x20') or header_line.startswith('\t') :  # 因为http首部是允许换行的, 所以如果这一行是以空格或制表符开头的，需要将信息加到之前那行
+                _headers[_last_key] += ' ' + header_line.lstrip()
+                continue
+            else:
+                _header_name, _header_value = header_line.split(':', 1)
             _headers[_header_name] = _header_value
+            _last_key = _header_name
+
 
         return _headers
 
     def get_response_headers_string(self, first_line):
         """生成响应头，并加上最后的两个CRLF"""
         _headers_string = first_line
-        for _name, _value in self.items():
-            _header_line = "{name}: {value}".format(
+        for _name, _value_list in self._headers_map_list.items():
+            for _value in _value_list:
+                _header_line = "{name}: {value}".format(
                     name = _name, value = _value)
-            _headers_string += (CRLF + _header_line)
+                _headers_string += (CRLF + _header_line)
+
 
         return _headers_string + CRLF * 2
+
+    def __setitem__(self, name, value):
+        self._headers_map_list[name] = [value]
+
+    def __getitem__(self, name):
+        if name in self._headers_map_list:
+            return self._headers_map_list[name][0]
+        else:
+            raise KeyError
+
+    def add(self, name, value):
+        self._headers_map_list.setdefault(name, []).append(value)
 
 def get_request(connection, real_ip=True):
     """在刚连接时，获取用户的http请求信息, socket是客户端的socket"""

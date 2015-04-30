@@ -27,12 +27,19 @@ def contorl_access(method):
     return wrap
 
 class IndexHandler(RequestHandler):
-    def GET(self, path = '/'):
-        self.render('index.html')
+    def GET(self, name = 'abc'):
+        print(self.request.headers)
+        self.set_cookie('a1', '1234')
+        self.set_cookie('a2', '456')
+        self.set_cookie('a3', '789', expires = 12345)
+        self.push(name)
 
     @property
     def db(self):
         return self.application.db
+
+    def HEAD(self, name="abc"):
+        self.push('ok')
 
 
 class LoginHandler(RequestHandler):

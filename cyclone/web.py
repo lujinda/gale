@@ -12,14 +12,16 @@ from cyclone.utils import code_mess_map, format_timestamp # 存的是http响应�
 from cyclone.escape import utf8
 from cyclone.log import access_log, config_logging
 from cyclone.template import Env
+import Cookie
 import traceback
+import time
 
 try:
     import urlparse # py2
 except ImportError:
     import urllib.parse as urlparse # py3
 
-_ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE')
+_ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE', 'HEAD')
 
 class RequestHandler():
     """主要类，在这里完成对用户的请求处理并返回"""
@@ -50,6 +52,9 @@ class RequestHandler():
 
     def ALL(self, *args, **kwargs):
         pass
+
+    def HEAD(self, *args, **kwargs):
+        raise NotSupportMethod
 
     def GET(self, *args, **kwargs):
         raise NotSupportMethod
@@ -112,6 +117,7 @@ class RequestHandler():
     def template_env(self):
         return self.application.template_env
 
+
     @property
     def is_finished(self):
         return self._finished
@@ -120,13 +126,19 @@ class RequestHandler():
         if self.is_finished:
             return
 
+        if hasattr(self, '_new_cookie'):
+            for cookie in self._new_cookie.values():
+                self.add_header('Set-Cookie', cookie.OutputString())
+
         _body = utf8(_buffer) or b''.join(self._push_buffer)
 
         self.set_header('Content-Length', len(_body))
 
         _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
         self.request.connection.send_headers(_headers)
-        self.request.connection.send_body(_body)
+
+        if self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
+            self.request.connection.send_body(_body)
 
         self.log_print()
 
@@ -161,15 +173,60 @@ class RequestHandler():
         if not self.request.is_keep_alive():
             self.request.connection.close()
             self._finished = True
-    
+
+
     def set_header(self, name, value):
+        value = utf8(value)
         self._headers[name] = value
+
+    def add_header(self, name, value):
+        value = utf8(value)
+        self._headers.add(name, value)
 
     def set_headers(self, headers):
         if not isinstance(headers, dict):
             raise TypeError
         for _k, _v in headers.items():
             self.set_header(_k, _v)
+
+    @property
+    def cookies(self):
+        """本次请求中所有的cookies"""
+        return self.request.cookies
+
+    def set_cookie(self, name, value, domain=None, expires=None, path = '/', expires_day = None, **kwargs):
+        self._new_cookie = getattr(self, '_new_cookie', Cookie.SimpleCookie())
+        self._new_cookie.pop(name, None) # 如果已经存在了，则删除它
+
+        self._new_cookie[name] = value
+        morsel = self._new_cookie[name]
+        if domain:
+            morsel['domain'] = domain
+
+        if path:
+            morsel['path'] = path
+
+        if expires_day and (not expires):
+            expires = expires_day * 60 * 60 * 24
+
+        if expires:
+            morsel['expires'] = format_timestamp(time.time() + expires)
+
+        for k, v in kwargs.items():
+            if k == 'max_age':
+                k = 'max-age'
+            morsel[k] = v
+
+    def clear_cookie(self, name, path = '/', domain = None):
+        self.set_cookie(name, value = '', 
+                path = path, domain = domain, expires = -100)
+
+    def clear_all_cookies(self, path = '/', domain = None):
+        for _cookie_name in self.cookies:
+            self.clear_cookie(name, path = path, domain = domain)
+
+    def get_cookie(self, cookie_name, default = None):
+        return self.cookies.get(cookie_name, default)
 
     def set_status(self, status_code = 200, status_message = None):
         self.status_message = status_message # 可以自定义状态代码描述
@@ -191,6 +248,8 @@ class RequestHandler():
 
     def send_error(self, exc):
         """把异常信息推送出去"""
+        exc = utf8(exc)
+        print(exc)
         self._push_buffer = []
         if not self.settings.get('debug', False): # 只允许 在debug情况下输出错误
             return

@@ -29,7 +29,7 @@ class IOSocket():
         self.closed = True
 
     def send_string(self, string):
-        self._socket.send(string)
+        self._socket.sendall(string)
 
     def is_close(self):
         if self.closed:
