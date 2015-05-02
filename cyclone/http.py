@@ -7,8 +7,8 @@
 # Description     : 
 from cyclone.config import CRLF
 from cyclone.e import HeaderFormatError, NotSupportHttpVersion
-from cyclone.utils import urlsplit, urldecode 
-from cyclone.socket import IOSocket
+from cyclone.utils import urlsplit, urldecode
+from cyclone.iosocket import IOSocket
 from gevent import socket
 from time import time
 import re

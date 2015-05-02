@@ -28,7 +28,7 @@ def contorl_access(method):
 
 class IndexHandler(RequestHandler):
     def GET(self, name = 'abc'):
-        print(self.request.headers)
+        print(self.get_argument('name'))
         self.set_cookie('a1', '1234')
         self.set_cookie('a2', '456')
         self.set_cookie('a3', '789', expires = 12345)

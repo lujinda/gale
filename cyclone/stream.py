@@ -8,7 +8,6 @@
 from __future__ import print_function
 from gevent import socket
 import gevent
-from cyclone.escape import param_encode
 from cyclone.http import HTTPConnection
 import sys
 

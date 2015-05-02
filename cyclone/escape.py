@@ -5,8 +5,9 @@
 # Last modified : 2015-03-29 18:47:12
 # Filename      : escape.py
 # Description   : 
-from cyclone.utils import is_py3
+from cyclone.version import is_py3
 from json import dumps
+
 
 def utf8(param):
     if is_py3:

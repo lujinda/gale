@@ -5,12 +5,13 @@
 # Last modified   : 2015-03-26 13:14:11
 # Filename        : cyclone/utils.py
 # Description     : 
-import sys
+
 from urlparse import urlsplit
 import email.utils
 import time
-
-is_py3 = sys.version[0] == '3'
+import urllib
+from cyclone import escape
+from cyclone.version import is_py3
 
 def urldecode(params_url):
     if not params_url: # 如果没有东西的话，就返回{}
@@ -19,9 +20,14 @@ def urldecode(params_url):
     _d = {} # 存的是请求参数的字典形式，值是参数值列表
     for _name, _value in map(lambda x: x.split('=', 1), 
             filter(lambda k_v: '=' in k_v, params_url.split('&'))): # filter 是为了把不带有=号的参数去掉
-        _d.setdefault(_name, []).append(_value)
+        # 对用户提交的url参数和body进行解码成unicode
 
+        _d.setdefault(_name, []).append(urlunquote(_value))
     return _d
+
+def urlunquote(param):
+    param = urllib.unquote_plus(escape.utf8(param))
+    return escape.param_decode(param)
 
 code_mess_map = {
             100: 'Continue',
