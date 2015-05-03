@@ -16,7 +16,6 @@ class IOSocket():
         self.closed = False
         self._request_data = ''
 
-
     def gevent_exception(self, *args, **kwargs):
         self.close()
 

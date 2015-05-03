@@ -249,7 +249,6 @@ class RequestHandler():
     def send_error(self, exc):
         """把异常信息推送出去"""
         exc = utf8(exc)
-        print(exc)
         self._push_buffer = []
         if not self.settings.get('debug', False): # 只允许 在debug情况下输出错误
             return
@@ -309,12 +308,14 @@ class ErrorHandler(RequestHandler):
 class Application(object):
     _template_cache = {}
 
-    def __init__(self, handlers, settings = {}, log_settings = {}, template_settings = {}):
+    def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}):
         """
         log_settings : {'level': log level(default: DEBUG'
                 'datefmt': log date format(default: "%Y-%m-%d %H:%M:%S")}
-        template_settings: {'path': 'xxx'...} like jinja env
+        template_settings: {'template_path': 'xxx'...} like jinja env
         """
+        assert handlers or  vhost_handlers
+        self.vhost_handlers = self.__re_compile(vhost_handlers)
         self.handlers = self.__re_compile(handlers) # 将正则规则先编译了，加快速度
         self.settings = settings
         config_logging(log_settings)
@@ -355,6 +356,13 @@ class Application(object):
     def __find_handler(self, request):
         """根据url来决定将任务交由哪个handler去处理, 会返回handler，还有url参数"""
         request_path = request.path
+        request_host = request.host
+
+        for vhost_re, vhost_handlers in self.vhost_handlers: # 如果启用了虚拟主机，则做一下host字段的匹配
+            if vhost_re.match(request_host):
+                self.handlers = self.__re_compile(vhost_handlers)
+                break
+
         for url_re, url_handler in self.handlers:
             _match = url_re.match(request_path)
             if _match: # 如果匹配上了，就执行下一步

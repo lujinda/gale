@@ -28,11 +28,10 @@ def contorl_access(method):
 
 class IndexHandler(RequestHandler):
     def GET(self, name = 'abc'):
-        print(self.get_argument('name'))
-        self.set_cookie('a1', '1234')
-        self.set_cookie('a2', '456')
-        self.set_cookie('a3', '789', expires = 12345)
-        self.push(name)
+        self.render('index.html')
+
+    def POST(self):
+        print(self.request.all_arguments)
 
     @property
     def db(self):
@@ -50,23 +49,31 @@ class DemoApplication(Application):
     def __init__(self):
         handlers = [
                 (r'/login', LoginHandler),
-                (r'/(\w+)', IndexHandler),
+                (r'/test', IndexHandler),
                 ]
+
 
         settings = {
                 'debug'     :   True,
                 'real_ip'   :   True,
                 }
+        vhost_handlers = [
+                (r'^localhost.*', handlers),
+                ]
 
         log_settings = {
                 'level':    'DEBUG',
+                }
+        template_settings = {
+                'template_path': 'template',
                 }
 
 
         self.db = Redis()
 
-        super(DemoApplication, self).__init__(handlers, 
-                settings = settings, log_settings = log_settings)
+        super(DemoApplication, self).__init__(vhost_handlers = vhost_handlers, 
+                settings = settings, log_settings = log_settings,
+                template_settings = template_settings)
 
 server = HTTPServer(DemoApplication())
 server.listen(('', 8000))

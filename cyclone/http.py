@@ -21,8 +21,20 @@ class HTTPConnection(IOSocket):
         self._request_data = ''
         return _first_line, _headers, _body
 
+    def read_more_body(self, body, max_length):
+        while len(body) < max_length:
+            _body_data = self._socket.recv(self._buff)
+            if not _body_data:
+                break
+            body += _body_data
+
+        return body
+
     def get_request(self, callback):
         """获取用户的请求信息，并可以成功取得一个http请求时，生成一个HTTPRequest, 并激活回调函数(application的__call__)"""
+        _headers = ''
+        _body = ''
+
         while True and self.closed == False:
             try:
                 _data = self._socket.recv(self._buff)
@@ -34,7 +46,8 @@ class HTTPConnection(IOSocket):
                 break
             self._request_data += _data
 
-            if CRLF * 2 in self._request_data: # 如果当前数据已经够构成一个http头信息了，则开始激活回调了
+            if CRLF * 2 in self._request_data: # 有CRLF的地方表示是已经读完headers了
+                _headers, _body = self._request_data.split(CRLF * 2)
                 if not self._request_data.strip(): # 如果是个空请求的话，则关闭
                     self.close()
                     break
@@ -64,6 +77,8 @@ class HTTPRequest():
         self.body = body
         _urlparse = urlsplit(self.uri)
         self.path = _urlparse.path
+        self.host = headers.get('Host', '').strip()
+        assert self.host
         self.query = _urlparse.query
         self.connection = connection
         self._start_time = time()
@@ -190,6 +205,7 @@ def get_request(connection, real_ip=True):
         _first_line, _headers, _body = connection.parse_request_all() # 把收到的信息分析出来
         headers = HTTPHeaders(_headers) # 这是http headers信息，类型是dict
         method , uri, version = map(lambda s: s.strip(), _first_line.split())
+        _body = connection.read_more_body(_body, int(headers.get('Content-Length', 0))) # 防止有body数据没有被读完，根据header中 的Content-Length再去读一下, 直到长度达到指定值
         return HTTPRequest(method = method, uri = uri, version = version,
             headers = headers, body = _body, connection = connection, real_ip = real_ip)
     except Exception as e:
