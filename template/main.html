@@ -7,7 +7,7 @@
     </head>
     <body>
         {% block header %}
-        {% include 'header.html' %}
+        {{module('header_module', 'header.html')}}
         {% endblock %}
         {% block body %}
         {% endblock %}

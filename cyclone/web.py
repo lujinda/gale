@@ -9,7 +9,7 @@ from __future__ import unicode_literals, print_function
 from cyclone.http import  HTTPHeaders
 from cyclone.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
 from cyclone.utils import code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
-from cyclone.escape import utf8
+from cyclone.escape import utf8, param_decode
 from cyclone.log import access_log, config_logging
 from cyclone.template import Env
 import Cookie
@@ -93,6 +93,9 @@ class RequestHandler():
 
 
     def render_string(self, template_name, **kwargs):
+        for _param_key in kwargs:
+            kwargs[_param_key] = param_decode(kwargs[_param_key])
+
         _template = self.application._template_cache.get(template_name)
         if not _template:
             _template = self.template_env.get_template(template_name)
@@ -100,6 +103,7 @@ class RequestHandler():
 
         name_space = self.get_name_space()
         kwargs.update(name_space)
+        kwargs['module'] = self._load_ui_module
 
         return _template.render(**kwargs)
 
@@ -254,7 +258,7 @@ class RequestHandler():
             return
 
         if self.get_status() >= 500:
-            self.push(exc + '\n')
+            self.push(exc + b'\n')
         else:
             traceback.sys.exc_clear()
         self.push(self.__response_first_line)
@@ -299,6 +303,15 @@ class RequestHandler():
     def settings(self):
         return self.application.settings
 
+    @property
+    def ui_settings(self):
+        return self.application.ui_settings
+
+    def _load_ui_module(self, module_name, *args, **kwargs):
+        _module = self.ui_settings.get(module_name)
+        assert issubclass(_module, UIModule), 'module must extend from UIModule'
+        _module_instance = _module(self)
+        return _module_instance.render(*args, **kwargs)
 
 class ErrorHandler(RequestHandler):
     def ALL(self, status_code):
@@ -308,11 +321,12 @@ class ErrorHandler(RequestHandler):
 class Application(object):
     _template_cache = {}
 
-    def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}):
+    def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}, ui_settings = {}):
         """
         log_settings : {'level': log level(default: DEBUG'
                 'datefmt': log date format(default: "%Y-%m-%d %H:%M:%S")}
         template_settings: {'template_path': 'xxx'...} like jinja env
+        ui_settings: {module_name: module(extends from UIModule)}
         """
         assert handlers or  vhost_handlers
         self.vhost_handlers = self.__re_compile(vhost_handlers)
@@ -320,6 +334,7 @@ class Application(object):
         self.settings = settings
         config_logging(log_settings)
         self.template_env = Env(template_settings)
+        self.ui_settings = ui_settings
 
     def __re_compile(self, handlers):
         """把正则规则都编译了，加快速度"""
@@ -373,4 +388,16 @@ class Application(object):
             return default_handler(self, request), (), {}
         else:
             return ErrorHandler(self, request), (), {'status_code': 404}
+
+
+class UIModule(object):
+    def __init__(self, handler):
+        self.handler = handler
+        self.request = handler.request
+
+    def render(self):
+        raise ImportError
+
+    def render_string(self, template_name, *args, **kwargs):
+        return self.handler.render_string(template_name, *args, **kwargs)
 

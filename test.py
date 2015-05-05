@@ -6,11 +6,15 @@
 # Filename        : /home/ljd/py/coding/cyclone/test.py
 # Description     : 
 from cyclone.server import HTTPServer
-from cyclone.web import Application, RequestHandler
+from cyclone.web import Application, RequestHandler, UIModule
 from cyclone.e import HTTPError
 from functools import wraps
 
 from redis import Redis
+
+class HeaderModule(UIModule):
+    def render(self, template_name):
+        return self.render_string(template_name, title = '这是标题啊')
 
 def contorl_access(method):
     @wraps(method)
@@ -28,7 +32,7 @@ def contorl_access(method):
 
 class IndexHandler(RequestHandler):
     def GET(self, name = 'abc'):
-        self.render('index.html')
+        self.render('index.html', name = '鲁金达')
 
     def POST(self):
         print(self.request.all_arguments)
@@ -57,9 +61,6 @@ class DemoApplication(Application):
                 'debug'     :   True,
                 'real_ip'   :   True,
                 }
-        vhost_handlers = [
-                (r'^localhost.*', handlers),
-                ]
 
         log_settings = {
                 'level':    'DEBUG',
@@ -68,12 +69,15 @@ class DemoApplication(Application):
                 'template_path': 'template',
                 }
 
+        ui_settings = {
+                'header_module'     :   HeaderModule,
+                }
 
         self.db = Redis()
 
-        super(DemoApplication, self).__init__(vhost_handlers = vhost_handlers, 
+        super(DemoApplication, self).__init__(handlers = handlers, 
                 settings = settings, log_settings = log_settings,
-                template_settings = template_settings)
+                template_settings = template_settings, ui_settings = ui_settings)
 
 server = HTTPServer(DemoApplication())
 server.listen(('', 8000))
