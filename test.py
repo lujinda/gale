@@ -6,7 +6,7 @@
 # Filename        : /home/ljd/py/coding/cyclone/test.py
 # Description     : 
 from cyclone.server import HTTPServer
-from cyclone.web import Application, RequestHandler, UIModule
+from cyclone.web import RouterApplication, RequestHandler, UIModule
 from cyclone.e import HTTPError
 from functools import wraps
 
@@ -18,7 +18,7 @@ class HeaderModule(UIModule):
 
 def contorl_access(method):
     @wraps(method)
-    def wrap(self, *args, **kwargs):
+    def wrap(self, *args, **kwargs): 
         _ip = 'contorl_access:' + self.client_ip
         _num = int(self.db.get(_ip) or 0)
         _num = self.db.incr(_ip)
@@ -32,7 +32,7 @@ def contorl_access(method):
 
 class IndexHandler(RequestHandler):
     def GET(self, name = 'abc'):
-        self.render('index.html', name = '鲁金达')
+        self.push('hi')
 
     def POST(self):
         print(self.request.all_arguments)
@@ -49,7 +49,7 @@ class LoginHandler(RequestHandler):
     def GET(self):
         self.redirect('/test')
 
-class DemoApplication(Application):
+class DemoApplication(RouterApplication):
     def __init__(self):
         handlers = [
                 (r'/login', LoginHandler),
@@ -79,7 +79,12 @@ class DemoApplication(Application):
                 settings = settings, log_settings = log_settings,
                 template_settings = template_settings, ui_settings = ui_settings)
 
-server = HTTPServer(DemoApplication())
+app = DemoApplication()
+@app.router(url = '/test', host = 'localhost:8000', method=['GET', ])
+def test(self):
+    self.push('hiiiu')
+
+server = HTTPServer(app)
 server.listen(('', 8000))
 server.run(processes = 4)
 

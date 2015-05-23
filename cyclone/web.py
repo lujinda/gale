@@ -15,6 +15,8 @@ from cyclone.template import Env
 import Cookie
 import traceback
 import time
+from hashlib import md5
+from functools import wraps
 
 try:
     import urlparse # py2
@@ -23,7 +25,7 @@ except ImportError:
 
 _ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE', 'HEAD')
 
-class RequestHandler():
+class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
     def __init__(self, application, request):
         self.application = application
@@ -328,24 +330,36 @@ class Application(object):
         template_settings: {'template_path': 'xxx'...} like jinja env
         ui_settings: {module_name: module(extends from UIModule)}
         """
-        assert handlers or  vhost_handlers
-        self.vhost_handlers = self.__re_compile(vhost_handlers)
-        self.handlers = self.__re_compile(handlers) # 将正则规则先编译了，加快速度
+        vhost_handlers = vhost_handlers or [('.*$', handlers)]
+        self.vhost_handlers = []
+        for _vhost_handler in vhost_handlers:
+            self.add_handlers(*_vhost_handler)
         self.settings = settings
         config_logging(log_settings)
         self.template_env = Env(template_settings)
         self.ui_settings = ui_settings
 
-    def __re_compile(self, handlers):
+    def __re_compile(self, re_string):
         """把正则规则都编译了，加快速度"""
         import re
-        _handlers = []
-        for url_re, url_handler in handlers:
-            url_re = "%s%s%s" % ((not url_re.startswith('^')) and '^' or '', 
-                url_re, (not url_re.endswith('$')) and '$' or '')  # 自动给url加上开头与结尾
-            _handlers.append((re.compile(url_re), url_handler))
+        re_string = "%s%s%s" % ((not re_string.startswith('^')) and '^' or '', 
+            re_string, (not re_string.endswith('$')) and '$' or '')  # 自动给url加上开头与结尾
+        return re.compile(re_string)
 
-        return _handlers
+    def add_handlers(self, re_host_string, host_handlers):
+        _re_host_exists = False
+        _compile_handlers = []
+        for _re_string, _handler in host_handlers:
+            _compile_handlers.append((self.__re_compile(_re_string), 
+                _handler))
+
+        for _re, _handlers in self.vhost_handlers:
+            if _re.pattern == re_host_string:
+                _handlers.extend(_compile_handlers)
+                _re_host_exists = True
+                break
+        if not _re_host_exists:
+            self.vhost_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
 
     def __call__(self, request):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
@@ -373,9 +387,9 @@ class Application(object):
         request_path = request.path
         request_host = request.host
 
-        for vhost_re, vhost_handlers in self.vhost_handlers: # 如果启用了虚拟主机，则做一下host字段的匹配
+        for vhost_re, handlers in self.vhost_handlers: # 如果启用了虚拟主机，则做一下host字段的匹配
             if vhost_re.match(request_host):
-                self.handlers = self.__re_compile(vhost_handlers)
+                self.handlers = handlers
                 break
 
         for url_re, url_handler in self.handlers:
@@ -389,6 +403,39 @@ class Application(object):
         else:
             return ErrorHandler(self, request), (), {'status_code': 404}
 
+class RouterApplication(Application):
+    def router(self, url, method = None, base_handler = None, host = '.*$'):
+        base_handler = base_handler or self.__made_base_handler(url) # 根据url来生成一个类
+
+        method = method or 'GET'
+        if not isinstance(method, (tuple, list)):
+            method = [method, ]
+
+        for _method in method:
+            if _method not in _ALL_METHOD:
+                raise NotSupportMethod
+
+        def method_func_wrap(method_func):
+            @wraps(method_func)
+            def wrap(self, *args, **kwargs):
+                return method_func(self, *args, **kwargs)
+
+            for _method in method:
+                setattr(base_handler, _method.upper(), wrap)
+
+            return wraps
+
+        host_handler = (url, base_handler)
+        """ 这里需要处理把base添加到原来的vhost_handlers中去，如果已经有.*$了，并且有指定 host，就插入新的，如果没有host指定，则追进到旧的里去"""
+        self.add_handlers(host or '.*$', [host_handler, ])
+
+        return method_func_wrap
+
+    def __made_base_handler(self, url):
+        _m = md5(url)
+        _class_name = '_T%s_Handler' % (_m.hexdigest())
+        return type(utf8(_class_name),
+                (RequestHandler, ), {})
 
 class UIModule(object):
     def __init__(self, handler):
