@@ -12,6 +12,7 @@ import time
 import urllib
 from cyclone import escape
 from cyclone.version import is_py3
+import mimetypes
 
 def urldecode(params_url):
     if not params_url: # 如果没有东西的话，就返回{}
@@ -77,4 +78,7 @@ def format_timestamp(ts = None):
         ts = time.time()
     return email.utils.formatdate(ts, usegmt = True)
 
+
+def get_mime_type(file_path):
+    return mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
 

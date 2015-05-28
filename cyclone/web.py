@@ -8,7 +8,7 @@
 from __future__ import unicode_literals, print_function
 from cyclone.http import  HTTPHeaders
 from cyclone.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
-from cyclone.utils import code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from cyclone.utils import get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from cyclone.escape import utf8, param_decode
 from cyclone.log import access_log, config_logging
 from cyclone.template import Env
@@ -17,6 +17,7 @@ import traceback
 import time
 from hashlib import md5
 from functools import wraps
+import os
 
 try:
     import urlparse # py2
@@ -74,6 +75,10 @@ class RequestHandler(object):
         _buffer = utf8(_buffer)
         self._push_buffer.append(_buffer)
 
+    @property
+    def static_path(self):
+        return self.settings.get('static_path')
+
     def redirect(self, url, temp = True, status_code = None):
         if not status_code:
             status_code = temp and 302 or 301 # 如果没有指定 status_code， 则根据是否是临时重定向来决定code
@@ -129,6 +134,8 @@ class RequestHandler(object):
         return self._finished
 
     def flush(self, _buffer = None):
+        _buffer = _buffer or b''.join(self._push_buffer)
+        self._push_buffer = []
         if self.is_finished:
             return
 
@@ -136,7 +143,7 @@ class RequestHandler(object):
             for cookie in self._new_cookie.values():
                 self.add_header('Set-Cookie', cookie.OutputString())
 
-        _body = utf8(_buffer) or b''.join(self._push_buffer)
+        _body = utf8(_buffer)
 
         self.set_header('Content-Length', len(_body))
 
@@ -178,8 +185,8 @@ class RequestHandler(object):
 
         if not self.request.is_keep_alive():
             self.request.connection.close()
-            self._finished = True
 
+        self._finished = True
 
     def set_header(self, name, value):
         value = utf8(value)
@@ -325,19 +332,27 @@ class Application(object):
 
     def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}, ui_settings = {}):
         """
-        log_settings : {'level': log level(default: DEBUG'
-                'datefmt': log date format(default: "%Y-%m-%d %H:%M:%S")}
+        log_settings : {'level': log level(default: DEBUG',
+                'datefmt': log date format(default: "%Y-%m-%d %H:%M:%S"),
+                'file': log save to file}
         template_settings: {'template_path': 'xxx'...} like jinja env
         ui_settings: {module_name: module(extends from UIModule)}
         """
+        self.settings = settings
+        self.template_env = Env(template_settings)
+        self.ui_settings = ui_settings
+
+        if settings.get('static_path'):
+            handlers.append((r'%s(.*)' %
+                (settings.get('static_prefix', r'/static/')),
+                StaticFileHandler))
+
+
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
         self.vhost_handlers = []
         for _vhost_handler in vhost_handlers:
             self.add_handlers(*_vhost_handler)
-        self.settings = settings
         config_logging(log_settings)
-        self.template_env = Env(template_settings)
-        self.ui_settings = ui_settings
 
     def __re_compile(self, re_string):
         """把正则规则都编译了，加快速度"""
@@ -392,6 +407,7 @@ class Application(object):
                 self.handlers = handlers
                 break
 
+
         for url_re, url_handler in self.handlers:
             _match = url_re.match(request_path)
             if _match: # 如果匹配上了，就执行下一步
@@ -403,8 +419,7 @@ class Application(object):
         else:
             return ErrorHandler(self, request), (), {'status_code': 404}
 
-class RouterApplication(Application):
-    def router(self, url, method = None, base_handler = None, host = '.*$'):
+    def router(self, url, method = None, base_handler = None, host = '^.*$'):
         base_handler = base_handler or self.__made_base_handler(url) # 根据url来生成一个类
 
         method = method or 'GET'
@@ -427,7 +442,7 @@ class RouterApplication(Application):
 
         host_handler = (url, base_handler)
         """ 这里需要处理把base添加到原来的vhost_handlers中去，如果已经有.*$了，并且有指定 host，就插入新的，如果没有host指定，则追进到旧的里去"""
-        self.add_handlers(host or '.*$', [host_handler, ])
+        self.add_handlers(host or '^.*$', [host_handler, ])
 
         return method_func_wrap
 
@@ -436,6 +451,7 @@ class RouterApplication(Application):
         _class_name = '_T%s_Handler' % (_m.hexdigest())
         return type(utf8(_class_name),
                 (RequestHandler, ), {})
+
 
 class UIModule(object):
     def __init__(self, handler):
@@ -447,4 +463,49 @@ class UIModule(object):
 
     def render_string(self, template_name, *args, **kwargs):
         return self.handler.render_string(template_name, *args, **kwargs)
+
+
+class StaticFileHandler(RequestHandler):
+    def GET(self, file_path):
+        absolute_path = self.make_absolute_path(self.static_path,
+                file_path)
+        if not os.path.exists(absolute_path):
+            raise HTTPError(404)
+
+        mime_type = get_mime_type(absolute_path)
+
+        self.set_header('Content-Type', mime_type)
+
+        with open(absolute_path, 'rb') as fd:
+            self.push(fd.read())
+
+        self.finish()
+
+    def make_absolute_path(self, root, path):
+        return os.path.join(root, path)
+
+
+from cyclone.server import HTTPServer
+HANDLER_LIST = []
+
+def router(*args, **kwargs):
+    def wraps(method_func):
+        HANDLER_LIST.append((method_func, args, kwargs))
+
+    return wraps
+
+def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}):
+    app_path = app_path or os.getcwd()
+    settings.setdefault('debug', True)
+    settings.setdefault('static_path', os.path.join(app_path, 'static'))
+    template_settings.setdefault('template_path', os.path.join(app_path, 'template'))
+
+    app = Application(settings = settings, 
+            log_settings = log_settings, template_settings = template_settings)
+    for handler_func, args, kwargs in HANDLER_LIST:
+        app.router(*args, **kwargs)(handler_func)
+
+    http_server = HTTPServer(app)
+    http_server.listen(('', 8080))
+    http_server.run(processes = 0)
 
