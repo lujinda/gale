@@ -17,7 +17,7 @@ class HTTPServer(object):
     """
     listen_add = (None, None)
 
-    def __init__(self, callback, settings = {}, listen_add = (None, None), timeout= 60, max_client = 1000):
+    def __init__(self, callback, listen_add = (None, None), timeout= 60, max_client = 1000):
         assert callable(callback) # callback必须是可调用的
         self._callback = callback # 表示回调函数
         self.timeout = timeout 

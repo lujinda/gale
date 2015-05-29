@@ -10,6 +10,7 @@ from cyclone.e import HeaderFormatError, NotSupportHttpVersion
 from cyclone.utils import urlsplit, urldecode
 from cyclone.iosocket import IOSocket
 from gevent import socket
+import traceback
 from time import time
 import re
 
@@ -78,7 +79,6 @@ class HTTPRequest():
         _urlparse = urlsplit(self.uri)
         self.path = _urlparse.path
         self.host = headers.get('Host', '').strip()
-        assert self.host
         self.query = _urlparse.query
         self.connection = connection
         self._start_time = time()

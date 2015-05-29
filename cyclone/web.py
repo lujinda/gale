@@ -120,9 +120,14 @@ class RequestHandler(object):
                 'client_ip' :   self.client_ip,
                 'handler'   :   self,
                 'request'   :   self.request, 
+                'static_url'    :   self.get_static_url,
                 }
 
         return name_space
+
+    def get_static_url(self, file_path):
+        static_class = self.settings.get('static_class', StaticFileHandler)
+        return static_class.get_static_url(self.settings, file_path)
 
     @property
     def template_env(self):
@@ -345,7 +350,7 @@ class Application(object):
         if settings.get('static_path'):
             handlers.append((r'%s(.*)' %
                 (settings.get('static_prefix', r'/static/')),
-                StaticFileHandler))
+                settings.get('static_class', StaticFileHandler)))
 
 
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
@@ -466,24 +471,34 @@ class UIModule(object):
 
 
 class StaticFileHandler(RequestHandler):
-    def GET(self, file_path):
+    absolute_path = None
+    def HEAD(self, file_path):
+        return self.GET(file_path, is_include_body = False)
+
+    def GET(self, file_path, is_include_body = True):
         absolute_path = self.make_absolute_path(self.static_path,
                 file_path)
         if not os.path.exists(absolute_path):
             raise HTTPError(404)
 
-        mime_type = get_mime_type(absolute_path)
+        self.absolute_path = absolute_path
 
-        self.set_header('Content-Type', mime_type)
-
-        with open(absolute_path, 'rb') as fd:
-            self.push(fd.read())
+        if is_include_body: # 如果是Flase，则表示是HEAD方法传过来的，这时候不需要发送文件
+            with open(absolute_path, 'rb') as fd:
+                self.push(fd.read())
 
         self.finish()
+
+    def set_some_headers(self):
+        self.set_header('Content-Type', get_mime_type(self.absolute_path))
 
     def make_absolute_path(self, root, path):
         return os.path.join(root, path)
 
+    @classmethod
+    def get_static_url(cls, settings, file_path):
+        static_prefix = settings.get('static_prefix', '/static/')
+        return urlparse.urljoin(static_prefix, file_path)
 
 from cyclone.server import HTTPServer
 HANDLER_LIST = []
@@ -494,7 +509,8 @@ def router(*args, **kwargs):
 
     return wraps
 
-def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}):
+def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}, server_settings = {}):
+    """在这里的app_path决定着默认template和static_path，默认是执行脚本程序时的工作目录"""
     app_path = app_path or os.getcwd()
     settings.setdefault('debug', True)
     settings.setdefault('static_path', os.path.join(app_path, 'static'))
@@ -505,7 +521,8 @@ def app_run(app_path = None, settings = {}, log_settings={}, template_settings =
     for handler_func, args, kwargs in HANDLER_LIST:
         app.router(*args, **kwargs)(handler_func)
 
-    http_server = HTTPServer(app)
+    http_server = HTTPServer(app, **server_settings)
     http_server.listen(('', 8080))
     http_server.run(processes = 0)
+
 

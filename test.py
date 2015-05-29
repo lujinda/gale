@@ -9,7 +9,7 @@ from cyclone.web import router, app_run
 
 @router(url='/hello')
 def hello(self):
-    self.push('hi')
+    self.render('hello.html')
 
-app_run()
+app_run(server_settings = {''})
 

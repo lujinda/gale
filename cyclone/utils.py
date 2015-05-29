@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 #coding:utf8
 # Author          : tuxpy
 # Email           : q8886888@qq.com
@@ -29,6 +29,7 @@ def urldecode(params_url):
 def urlunquote(param):
     param = urllib.unquote_plus(escape.utf8(param))
     return escape.param_decode(param)
+
 
 code_mess_map = {
             100: 'Continue',
