@@ -11,5 +11,5 @@ from cyclone.web import router, app_run
 def hello(self):
     self.render('hello.html')
 
-app_run(server_settings = {''})
+app_run(server_settings = {'timeout': 4})
 

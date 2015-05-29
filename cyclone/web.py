@@ -348,10 +348,11 @@ class Application(object):
         self.ui_settings = ui_settings
 
         if settings.get('static_path'):
-            handlers.append((r'%s(.*)' %
+            static_class = settings.get('static_class', StaticFileHandler)
+            for url_re in (r'%s(.*)' %
                 (settings.get('static_prefix', r'/static/')),
-                settings.get('static_class', StaticFileHandler)))
-
+                r'/(favicon\.ico)', r'/(robots\.txt)'):
+                handlers.append((url_re, static_class))
 
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
         self.vhost_handlers = []
@@ -483,6 +484,8 @@ class StaticFileHandler(RequestHandler):
 
         self.absolute_path = absolute_path
 
+        self.set_some_headers()
+
         if is_include_body: # 如果是Flase，则表示是HEAD方法传过来的，这时候不需要发送文件
             with open(absolute_path, 'rb') as fd:
                 self.push(fd.read())
@@ -524,5 +527,4 @@ def app_run(app_path = None, settings = {}, log_settings={}, template_settings =
     http_server = HTTPServer(app, **server_settings)
     http_server.listen(('', 8080))
     http_server.run(processes = 0)
-
 
