@@ -167,9 +167,8 @@ class HTTPHeaders(dict):
                 continue
             else:
                 _header_name, _header_value = header_line.split(':', 1)
-            _headers[_header_name] = _header_value
+            _headers[_header_name] = _header_value.strip()
             _last_key = _header_name
-
 
         return _headers
 

@@ -22,7 +22,6 @@ class IOSocket():
     def close(self):
         if self.closed:
             return
-        self._socket.shutdown(socket.SHUT_RDWR)
         self._socket.close()
         self.closed = True
 

@@ -12,6 +12,7 @@ from cyclone.utils import get_mime_type, code_mess_map, format_timestamp # 存�
 from cyclone.escape import utf8, param_decode
 from cyclone.log import access_log, config_logging
 from cyclone.template import Env
+from hashlib import md5
 import Cookie
 import traceback
 import time
@@ -75,6 +76,9 @@ class RequestHandler(object):
         _buffer = utf8(_buffer)
         self._push_buffer.append(_buffer)
 
+    def is_supported_http1_1(self):
+        return self.request.version == 'HTTP/1.1'
+
     @property
     def static_path(self):
         return self.settings.get('static_path')
@@ -127,7 +131,8 @@ class RequestHandler(object):
 
     def get_static_url(self, file_path):
         static_class = self.settings.get('static_class', StaticFileHandler)
-        return static_class.get_static_url(self.settings, file_path)
+        static_url = static_class.get_static_url(self.settings, file_path)
+        return static_url
 
     @property
     def template_env(self):
@@ -150,7 +155,8 @@ class RequestHandler(object):
 
         _body = utf8(_buffer)
 
-        self.set_header('Content-Length', len(_body))
+        if self._status_code != 304: 
+            self.set_header('Content-Length', len(_body))
 
         _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
         self.request.connection.send_headers(_headers)
@@ -334,6 +340,7 @@ class ErrorHandler(RequestHandler):
 
 class Application(object):
     _template_cache = {}
+    _static_md5_cache = {}
 
     def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}, ui_settings = {}):
         """
@@ -471,6 +478,7 @@ class UIModule(object):
         return self.handler.render_string(template_name, *args, **kwargs)
 
 
+
 class StaticFileHandler(RequestHandler):
     absolute_path = None
     def HEAD(self, file_path):
@@ -484,24 +492,101 @@ class StaticFileHandler(RequestHandler):
 
         self.absolute_path = absolute_path
 
-        self.set_some_headers()
+        content_version = self.get_content_version(absolute_path)
 
-        if is_include_body: # 如果是Flase，则表示是HEAD方法传过来的，这时候不需要发送文件
-            with open(absolute_path, 'rb') as fd:
-                self.push(fd.read())
+        self.set_some_headers()
+        self.set_etag_header(content_version)
+
+        is_return_304 = self.should_return_304(content_version)
+
+        if is_return_304:
+            self.set_status(304)
+
+        if is_include_body and (not is_return_304): # 如果是Flase，则表示是HEAD方法传过来的，这时候不需要发送文件
+            for _data in self.get_content(absolute_path):
+                self.push(_data)
 
         self.finish()
 
+    def should_return_304(self, content_version):
+        """判断是否需要返回304,判断下request中的内容hash值与计算出来的是否一样就行了"""
+        return self.get_request_version() == content_version
+
+    def get_request_version(self):
+        """获取request中的内容hash值"""
+        version = self.request.headers.get('If-None-Match', '')
+        return version
+
+    @classmethod
+    def get_content(cls, absolute_path):
+        with open(absolute_path, 'rb') as fd:
+            while True:
+                chunk_size = 1024 * 8
+                chunk = fd.read(chunk_size)
+                if chunk:
+                    yield chunk
+                else:
+                    return
+
     def set_some_headers(self):
         self.set_header('Content-Type', get_mime_type(self.absolute_path))
+        self.set_expire_header()
 
-    def make_absolute_path(self, root, path):
+    def set_expire_header(self):
+        """这是在设置跟过期有关的http头"""
+        expire_sec = 86400 * 365 * 10
+        if self.is_supported_http1_1():
+            self.set_header('Cache-Control', 'max-age=%s' % (expire_sec))
+        else:
+            self.set_header('Expires', format_timestamp(time.time() + expire_sec))
+
+    def set_etag_header(self, etag = None):
+        if not self.is_supported_http1_1(): # 如果不是http 1.1则是不支持的（比如 1.0)
+            return 
+
+        etag = etag or self.get_content_version(self.absolute_path)
+        self.set_header('Etag', etag)
+
+    def get_content_version(self, absolute_path):
+        _cache_version = self.get_cache_version(absolute_path)
+        if _cache_version:
+            return _cache_version
+
+        md5er = md5()
+        for _chunk in self.get_content(absolute_path):
+            md5er.update(_chunk)
+        _md5 = md5er.hexdigest() 
+        self._md5_cache[absolute_path] = {'md5': _md5,
+                'mtime': self.file_stat().st_mtime}
+
+        return _md5
+
+    def get_cache_version(self, absolute_path):
+        _cache = self._md5_cache.get(absolute_path)
+        if not _cache:
+            return None
+
+        if self.file_stat().st_mtime != _cache['mtime']: # 如果已经修改过了，则表示已经更新了，则需要重新计算hash值
+            del self._md5_cache[absolute_path]
+            return None
+
+        return _cache['md5']
+
+    @property
+    def _md5_cache(self):
+        return self.application._static_md5_cache
+
+    @classmethod
+    def make_absolute_path(cls, root, path):
         return os.path.join(root, path)
 
     @classmethod
     def get_static_url(cls, settings, file_path):
         static_prefix = settings.get('static_prefix', '/static/')
         return urlparse.urljoin(static_prefix, file_path)
+
+    def file_stat(self):
+        return os.stat(self.absolute_path)
 
 from cyclone.server import HTTPServer
 HANDLER_LIST = []
@@ -526,5 +611,5 @@ def app_run(app_path = None, settings = {}, log_settings={}, template_settings =
 
     http_server = HTTPServer(app, **server_settings)
     http_server.listen(('', 8080))
-    http_server.run(processes = 0)
+    http_server.run()
 
