@@ -3,16 +3,16 @@
 # Author          : tuxpy
 # Email           : q8886888@qq.com
 # Last modified   : 2015-03-26 13:14:11
-# Filename        : cyclone/utils.py
+# Filename        : gale/utils.py
 # Description     : 
 
 from urlparse import urlsplit
 import email.utils
 import time
 import urllib
-from cyclone import escape
-from cyclone.version import is_py3
-from cyclone.config import CRLF
+from gale import escape
+from gale.version import is_py3
+from gale.config import CRLF
 import mimetypes
 
 def urldecode(params_url):

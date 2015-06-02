@@ -8,7 +8,7 @@
 from __future__ import print_function
 from gevent import socket
 import gevent
-from cyclone.http import HTTPConnection 
+from gale.http import HTTPConnection 
 import sys
 
 class StreamServer(object):

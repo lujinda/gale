@@ -3,18 +3,20 @@
 # Author          : tuxpy
 # Email           : q8886888@qq.com
 # Last modified   : 2015-03-26 12:55:47
-# Filename        : cyclone/socket.py
+# Filename        : gale/socket.py
 # Description     : 
 from __future__ import unicode_literals
 import gevent
 from gevent import socket
+from gale.config import CRLF
 
 class IOSocket():
     def __init__(self, socket, max_buff= 4096):
         self._socket = socket
         self._buff = max_buff
         self.closed = False
-        self._headers = ''
+        self._request_data = ''
+
 
     def gevent_exception(self, *args, **kwargs):
         self.close()
@@ -22,6 +24,7 @@ class IOSocket():
     def close(self):
         if self.closed:
             return
+        self._socket.shutdown(socket.SHUT_RDWR)
         self._socket.close()
         self.closed = True
 

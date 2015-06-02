@@ -3,10 +3,10 @@
 # Author          : tuxpy
 # Email           : q8886888@qq.com
 # Last modified   : 2015-03-25 13:41:03
-# Filename        : /home/ljd/py/coding/cyclone/test.py
+# Filename        : /home/ljd/py/coding/gale/test.py
 # Description     : 
-from cyclone.web import router, app_run, Application, RequestHandler
-from cyclone.server import HTTPServer
+from gale.web import router, app_run, Application, RequestHandler
+from gale.server import HTTPServer
 
 @router(url='/hello')
 def hello_get(self):
@@ -14,7 +14,7 @@ def hello_get(self):
 
 @router(url='/hello', method='POST')
 def hello_post(self):
-    print(self.request.all_arguments)
+    pass
 
 app_run()
 

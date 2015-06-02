@@ -3,15 +3,15 @@
 # Author          : tuxpy
 # Email           : q8886888@qq.com
 # Last modified   : 2015-03-26 13:16:41
-# Filename        : cyclone/web.py
+# Filename        : gale/web.py
 # Description     : 
 from __future__ import unicode_literals, print_function
-from cyclone.http import  HTTPHeaders
-from cyclone.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
-from cyclone.utils import get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
-from cyclone.escape import utf8, param_decode
-from cyclone.log import access_log, config_logging
-from cyclone.template import Env
+from gale.http import  HTTPHeaders
+from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
+from gale.utils import get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.escape import utf8, param_decode
+from gale.log import access_log, config_logging
+from gale.template import Env
 from hashlib import md5
 import Cookie
 import traceback
@@ -608,7 +608,7 @@ class StaticFileHandler(RequestHandler):
     def file_stat(self):
         return os.stat(self.absolute_path)
 
-from cyclone.server import HTTPServer
+from gale.server import HTTPServer
 HANDLER_LIST = []
 
 def router(*args, **kwargs):

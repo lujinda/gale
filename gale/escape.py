@@ -5,7 +5,7 @@
 # Last modified : 2015-03-29 18:47:12
 # Filename      : escape.py
 # Description   : 
-from cyclone.version import is_py3
+from gale.version import is_py3
 from json import dumps
 
 

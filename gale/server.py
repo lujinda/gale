@@ -3,12 +3,12 @@
 # Author          : tuxpy
 # Email           : q8886888@qq.com
 # Last modified   : 2015-03-26 13:14:37
-# Filename        : cyclone/server.py
+# Filename        : gale/server.py
 # Description     : 
 from __future__ import unicode_literals, print_function
 
 import gevent
-from cyclone.stream import StreamServer
+from gale.stream import StreamServer
 from multiprocessing import  cpu_count, Process
 
 class HTTPServer(object):
