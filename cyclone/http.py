@@ -156,7 +156,10 @@ class HTTPRequest():
 
     @property
     def all_arguments(self):
-        return urldecode("&".join(filter(bool, [self.body, self.query]))) # filter是为了将空白去掉
+        _args = {}
+        _args.update(self.query_arguments)
+        _args.update(self.body_arguments)
+        return _args
 
 class HTTPHeaders(dict):
     def __init__(self, headers=None):

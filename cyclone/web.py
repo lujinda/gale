@@ -302,24 +302,23 @@ class RequestHandler(object):
 
     def get_query_argument(self, param, default = None):
         _args = self.get_query_arguments(param)
-        return self.__get_one_argument(_args, param, default)
+        return self.__get_one_argument(_args, default)
 
     def get_body_argument(self, param, default = None):
         _args = self.get_body_arguments(param)
-        return self.__get_one_argument(_args, param, default)
+        return self.__get_one_argument(_args, default)
 
     def get_argument(self, param, default = None):
         _args = self.request.all_arguments.get(param, [])
-        return self.__get_one_argument(_args, param, default)
+        return self.__get_one_argument(_args, default)
 
     def get_files(self, name):
         return self.request.files.get(name, [])
 
     def get_file(self, name):
-        return self.__get_one_argument(self.get_files(name),
-                name)
+        return self.__get_one_argument(self.get_files(name))
 
-    def __get_one_argument(self, args, param, default = None):
+    def __get_one_argument(self, args, default = None):
         if (not args) and default: # 如果没有参数，但是指定了默认值，就返回默认的
             return default
 

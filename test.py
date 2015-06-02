@@ -14,8 +14,7 @@ def hello_get(self):
 
 @router(url='/hello', method='POST')
 def hello_post(self):
-    _file = self.get_file('file_a')
-    print(_file.body)
+    print(self.request.all_arguments)
 
 app_run()
 
