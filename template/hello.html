@@ -1,4 +1,10 @@
 {% extends "main.html" %}
 {% block body %}
 <img src="{{static_url('baidu.png')}}">
+<form enctype="multipart/form-data" method='POST'>
+    <input type="file" name="file_a">
+    <input type="file" name="file_b">
+    <input type="text" name="age">
+    <button type='submit'>上传</button>
+</form>
 {% endblock %}

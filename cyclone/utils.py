@@ -12,6 +12,7 @@ import time
 import urllib
 from cyclone import escape
 from cyclone.version import is_py3
+from cyclone.config import CRLF
 import mimetypes
 
 def urldecode(params_url):

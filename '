@@ -9,7 +9,6 @@ from cyclone.config import CRLF
 from cyclone.e import HeaderFormatError, NotSupportHttpVersion
 from cyclone.utils import urlsplit, urldecode
 from cyclone.iosocket import IOSocket
-from cyclone.log import gen_log
 from gevent import socket
 import traceback
 from time import time
@@ -23,9 +22,6 @@ class HTTPConnection(IOSocket):
         return _first_line, _headers
 
     def read_body(self, max_length):
-        if max_length == 0: # 如果请求headers中没有指定 Content-Type或者为0,表示没有请求主体
-            return ''
-
         body = self._socket.recv(self._buff)
         while len(body) < max_length:
             _body_data = self._socket.recv(self._buff)
@@ -37,13 +33,8 @@ class HTTPConnection(IOSocket):
 
     def read_headers(self):
         _headers = ''
-        while True:
-            _data = self._socket.recv(1)
-            if not _data:
-                break
-            _headers += _data
-            if CRLF * 2 in _headers:
-                break
+        while CRLF * 2 not in _headers:
+            _headers += self._socket.recv(1)
 
         return _headers.strip()
 
@@ -63,6 +54,7 @@ class HTTPConnection(IOSocket):
             request = get_request(self)
             callback(request)
 
+
     def send_headers(self, headers_string):
         """headers_string是已经被处理过了的头信息，直接写入就行"""
         self.send_string(headers_string)
@@ -80,7 +72,7 @@ class HTTPRequest():
         self.method = method
         self.uri = uri
         self.version = version
-        self.version_num = self.__version_num() 
+        self.version_num = self.__version_num()
         self.headers = headers
         self.body = body
         _urlparse = urlsplit(self.uri)
@@ -91,17 +83,6 @@ class HTTPRequest():
         self._start_time = time()
         self.real_ip = real_ip
         self.cookies = self.__get_cookies()
-        self.files = {}
-        self._body_arguments = {}
-
-    def _parse_body(self):
-        content_type = self.headers.get('Content-Type', '')
-
-        if content_type.startswith('multipart/form-data'):
-            parse_multipart_form_data(content_type, self.body, args = self._body_arguments,
-                    files = self.files)
-        else:
-            self._body_arguments = urldecode(self.body) 
 
     def __get_cookies(self):
         _cookies = {}
@@ -152,7 +133,7 @@ class HTTPRequest():
 
     @property
     def body_arguments(self):
-        return self._body_arguments
+        return urldecode(self.body)
 
     @property
     def all_arguments(self):
@@ -165,7 +146,7 @@ class HTTPHeaders(dict):
         self._headers_map_list = {} # 数据格式: {name: [value1, value2,...]}
 
         if not isinstance(headers, dict): # 如果传入的headers不是字典，表示这是请求headers，则调用dict原有的__setitem__ 将头信息传进去，如果传入是dict，则表示是响应头，则需要处理一下，比如同域名的，但是不同域值要放一块
-            headers = self._parse_headers(headers)
+            headers = self.__parse_headers(headers)
             for _k, _v in headers.items():
                 dict.__setitem__(self, _k, _v)
 
@@ -173,8 +154,7 @@ class HTTPHeaders(dict):
             self[_k] = _v
 
 
-    @staticmethod
-    def _parse_headers(headers):
+    def __parse_headers(self, headers):
         """把http头信息组织到一个字典中去"""
         _headers = {}
         _last_key = None
@@ -215,68 +195,6 @@ class HTTPHeaders(dict):
     def add(self, name, value):
         self._headers_map_list.setdefault(name, []).append(value)
 
-
-class HTTPFile(object):
-    def __init__(self, filename, body, content_type):
-        self.filename = filename
-        self.body = body
-        self.content_type = content_type
-
-    def size(self):
-        return len(self.body)
-
-    def __setitem__(self, name, value):
-        return setattr(self, name, value)
-
-    def __getitem__(self, name):
-        return getattr(self, name)
-
-def parse_content_disposition(con_dis):
-    """解析multipart中的数据头部中的Content-Dispoition字段"""
-    _con_dis = {}
-    _key = ''
-    for _field in con_dis.split('; '):
-        if '=' not in _field:
-            continue
-        key, value = _field.split('=', 1)
-        value = value[1: -1] # 去掉两边的绰号
-        _con_dis[key] = value
-
-    return _con_dis
-
-def parse_multipart_form_data(content_type, body, args, files):
-    boundary = content_type.split('boundary=')[-1]
-    end_index = body.rfind(b'--' + boundary + '--')
-    if end_index == -1: # 如果没有结尾符的话，则说明这个主体格式是错误的
-        gen_log.error('Invalid multipart/form-data: no final boundary')
-        return
-
-    parts = body[:end_index].strip().split(b'--' + boundary + CRLF)
-    for _part in parts:
-        if not _part:
-            continue
-        _args_part, _body_part = _part.split(CRLF * 2)[:2]
-        body = _body_part[:-2]
-        headers = HTTPHeaders._parse_headers(_args_part) # 这里的headers是指某一个数据块的头部信息
-        con_dis = headers.get('Content-Disposition', None)
-        if not con_dis:
-            gen_log.error('must have Content-Disposition')
-            return
-
-        con_dis = parse_content_disposition(con_dis)
-
-        name = con_dis['name']
-        if 'filename' in con_dis: # 如果有filename，则表示这是一个文件
-            filename = con_dis.get('filename')
-            if not filename:
-                continue
-
-            files.setdefault(name, []).append(
-                    HTTPFile(filename = filename, body = body,
-                            content_type = headers.get('Content-Type', 'application/octet-stream')))
-        else:
-            args.setdefault(name, []).append(body)
-
 def get_request(connection, real_ip=True):
     """在刚连接时，获取用户的http请求信息, socket是客户端的socket"""
     if connection.is_close(): # 如果连接出错而被关闭，则返回 False，立刻结束本此请求
@@ -286,11 +204,8 @@ def get_request(connection, real_ip=True):
         headers = HTTPHeaders(_headers) # 这是http headers信息，类型是dict
         method , uri, version = map(lambda s: s.strip(), _first_line.split())
         _body = connection.read_body(int(headers.get('Content-Length', 0))) # 防止有body数据没有被读完，根据header中 的Content-Length再去读一下, 直到长度达到指定值
-        http_request = HTTPRequest(method = method, uri = uri, version = version,
+        return HTTPRequest(method = method, uri = uri, version = version,
             headers = headers, body = _body, connection = connection, real_ip = real_ip)
-        http_request._parse_body()
-        return http_request
-
     except Exception as e:
         connection.close()
         traceback.print_exc()

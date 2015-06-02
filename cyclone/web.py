@@ -130,6 +130,7 @@ class RequestHandler(object):
         return name_space
 
     def get_static_url(self, file_path):
+        assert self.static_path, "static_url must had 'static_path' in app\'s settings"
         static_class = self.settings.get('static_class', StaticFileHandler)
         static_url = static_class.get_static_url(self.settings, file_path)
         return static_url
@@ -311,6 +312,13 @@ class RequestHandler(object):
         _args = self.request.all_arguments.get(param, [])
         return self.__get_one_argument(_args, param, default)
 
+    def get_files(self, name):
+        return self.request.files.get(name, [])
+
+    def get_file(self, name):
+        return self.__get_one_argument(self.get_files(name),
+                name)
+
     def __get_one_argument(self, args, param, default = None):
         if (not args) and default: # 如果没有参数，但是指定了默认值，就返回默认的
             return default
@@ -420,7 +428,6 @@ class Application(object):
                 self.handlers = handlers
                 break
 
-
         for url_re, url_handler in self.handlers:
             _match = url_re.match(request_path)
             if _match: # 如果匹配上了，就执行下一步
@@ -433,7 +440,7 @@ class Application(object):
             return ErrorHandler(self, request), (), {'status_code': 404}
 
     def router(self, url, method = None, base_handler = None, host = '^.*$'):
-        base_handler = base_handler or self.__made_base_handler(url) # 根据url来生成一个类
+        base_handler = base_handler or self.__made_base_handler(host, url) # 根据url来生成一个类
 
         method = method or 'GET'
         if not isinstance(method, (tuple, list)):
@@ -455,11 +462,25 @@ class Application(object):
 
         host_handler = (url, base_handler)
         """ 这里需要处理把base添加到原来的vhost_handlers中去，如果已经有.*$了，并且有指定 host，就插入新的，如果没有host指定，则追进到旧的里去"""
-        self.add_handlers(host or '^.*$', [host_handler, ])
+        self.add_handlers(host, [host_handler, ])
 
         return method_func_wrap
 
-    def __made_base_handler(self, url):
+    def __made_base_handler(self, host, url):
+        _base_handler = None
+        url_compile = self.__re_compile(url)
+        for re_host, vhost_handlers in self.vhost_handlers: # 先遍历下，看看有没有已经存在了的类
+            if (re_host.match(host)):
+                for re_url, _handler in vhost_handlers:
+                    if re_url.pattern == url_compile.pattern:
+                        _base_handler = _handler
+                        vhost_handlers.remove((re_url, _handler))
+                        break
+                continue
+
+        if _base_handler:
+            return _base_handler
+
         _m = md5(url)
         _class_name = '_T%s_Handler' % (_m.hexdigest())
         return type(utf8(_class_name),

@@ -9,7 +9,7 @@ from __future__ import unicode_literals
 import logging
 
 access_log = logging.getLogger('access_log')
-
+gen_log = logging.getLogger('gen_log')
 
 def config_logging(log_settings):
     """配置logging"""
@@ -28,4 +28,5 @@ def config_logging(log_settings):
         _handler.setFormatter(formatter)
         access_log.addHandler(_handler)
     access_log.setLevel(stream_handler.level) # 如果只是addHandler的话access_log的日志等级是没有被设置过的，也就默认的WARNING
+    gen_log.setLevel(stream_handler.level) 
 

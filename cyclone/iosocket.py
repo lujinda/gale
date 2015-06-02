@@ -14,7 +14,7 @@ class IOSocket():
         self._socket = socket
         self._buff = max_buff
         self.closed = False
-        self._request_data = ''
+        self._headers = ''
 
     def gevent_exception(self, *args, **kwargs):
         self.close()
