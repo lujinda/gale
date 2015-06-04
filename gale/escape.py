@@ -1,4 +1,4 @@
-#/usr/bin/env python
+
 #coding:utf-8
 # Author        : tuxpy
 # Email         : q8886888@qq.com.com
@@ -26,6 +26,8 @@ def param_decode(param):
         return param
     if isinstance(param, str):
         return param.decode('utf-8')
+
+    return param
 
 def param_encode(param):
     if is_py3:

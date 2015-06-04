@@ -14,6 +14,7 @@ from gale import escape
 from gale.version import is_py3
 from gale.config import CRLF
 import mimetypes
+import uuid
 
 def urldecode(params_url):
     if not params_url: # 如果没有东西的话，就返回{}
@@ -84,3 +85,6 @@ def format_timestamp(ts = None):
 def get_mime_type(file_path):
     return mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
 
+def made_uuid():
+    return uuid.uuid4().hex
+    

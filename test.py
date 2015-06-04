@@ -5,24 +5,34 @@
 # Last modified   : 2015-03-25 13:41:03
 # Filename        : /home/ljd/py/coding/gale/test.py
 # Description     : 
-from gale.web import router, app_run, Application, RequestHandler
-from gale.server import HTTPServer
+from gale.web import router, app_run
 
+"""
 @router(url='/hello')
 def hello_get(self):
-    self.render('hello.html')
+    counts = self.session.get('counts', 0)
+    self.session['counts'] = counts + 1
+    self.session.save()
+    self.render('hello.html', counts = counts + 1)
 
 @router(url='/hello', method='POST')
 def hello_post(self):
-    pass
+    print(self.request.all_arguments)
+    print(self.request.files)
 
 app_run()
 
 """
 
+from gale.web import Application, RequestHandler
+from gale.server import HTTPServer
+
 class HelloHandler(RequestHandler):
     def GET(self):
-        self.render('hello.html')
+        counts = self.session.get('counts', 0)
+        self.session['counts'] = counts + 1
+        self.session.save()
+        self.render('hello.html', counts = counts + 1)
 
     def POST(self):
         print(self.request.all_arguments)
@@ -43,4 +53,3 @@ http_server = HTTPServer(MyApplication())
 http_server.listen(('', 8080))
 http_server.run()
 
-"""

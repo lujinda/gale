@@ -8,11 +8,11 @@
 from __future__ import unicode_literals, print_function
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
-from gale.utils import get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode
 from gale.log import access_log, config_logging
 from gale.template import Env
-from hashlib import md5
+from gale.session import FileSessionManager
 import Cookie
 import traceback
 import time
@@ -115,7 +115,7 @@ class RequestHandler(object):
         name_space = self.get_name_space()
         kwargs.update(name_space)
         kwargs['module'] = self._load_ui_module
-
+        
         return _template.render(**kwargs)
 
     def get_name_space(self):
@@ -220,6 +220,7 @@ class RequestHandler(object):
         return self.request.cookies
 
     def set_cookie(self, name, value, domain=None, expires=None, path = '/', expires_day = None, **kwargs):
+        name, value = utf8(name), utf8(value)
         self._new_cookie = getattr(self, '_new_cookie', Cookie.SimpleCookie())
         self._new_cookie.pop(name, None) # 如果已经存在了，则删除它
 
@@ -318,6 +319,27 @@ class RequestHandler(object):
     def get_file(self, name):
         return self.__get_one_argument(self.get_files(name))
 
+    @property
+    def session(self):
+        _session = getattr(self, '_session', None)
+        if _session:
+            return _session
+
+        from gale.session import Session
+
+        _session_manager = getattr(self.application, 'session_manager', None)
+
+        if not _session_manager:
+            _session_manager = FileSessionManager(session_secret = 'galesessionsecret' ,
+                        session_timeout = 86400 * 60) # 如果application中没有配置session_manager，则自动生成一个FileSessionManager，推荐想用session的请自己在application中指定 session_manager
+            setattr(self.application, 'session_manager', _session_manager)
+
+        _session = Session(_session_manager, self)
+
+        self._session = _session
+
+        return _session
+
     def __get_one_argument(self, args, default = None):
         if (not args) and default: # 如果没有参数，但是指定了默认值，就返回默认的
             return default
@@ -395,6 +417,7 @@ class Application(object):
                 break
         if not _re_host_exists:
             self.vhost_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
+    
 
     def __call__(self, request):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
