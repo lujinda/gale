@@ -8,6 +8,7 @@
 from __future__ import unicode_literals, print_function
 
 import uuid
+import threading
 import hmac
 try:
     import cPickle as pickle
@@ -16,6 +17,7 @@ except ImportError:
 
 import hashlib
 import os
+import time
 
 class SessionData(dict):
     def __init__(self, session_id, hmac_key):
@@ -90,6 +92,8 @@ class ISessionManager(object):
 
 class FileSessionManager(ISessionManager):
     """这是使用文件来实现的seession机制"""
+    lock = threading.RLock()
+
     def __init__(self, session_secret, session_timeout, session_path = None):
         self.session_secret = session_secret
         self.session_timeout = session_timeout
@@ -101,7 +105,25 @@ class FileSessionManager(ISessionManager):
 
         self.session_path = session_path
         self.SESSION_PREFIX = '_glab_sess_'
-    
+
+        # 启动一个监控session过期时间的程序
+
+        _monitor = threading.Thread(target = self._session_monitor)
+        _monitor.setDaemon(True)
+        _monitor.start()
+
+    def _session_monitor(self):
+        while True:
+            self.__check_session()
+            time.sleep(3)
+
+    def __check_session(self):
+        import glob
+        for session_file in glob.glob(os.path.join(self.session_path, self.SESSION_PREFIX) + '*'):
+            _stat = os.stat(session_file)
+            if time.time() > _stat.st_atime + self.session_timeout:
+                os.remove(session_file)
+
     def _fetch(self, session_id):
         session_file = os.path.join(self.session_path, 
                 '%s%s' % (self.SESSION_PREFIX, session_id))
@@ -119,8 +141,9 @@ class FileSessionManager(ISessionManager):
                 '%s%s' % (self.SESSION_PREFIX, session.session_id))
         session_data = pickle.dumps(dict(session.items()))
 
-        with open(session_file, 'wb') as session_fd:
-            session_fd.write(session_data)
+        with self.lock:
+            with open(session_file, 'wb') as session_fd:
+                session_fd.write(session_data)
 
     def remove_session(self, session):
         session_file = os.path.join(self.session_path, 

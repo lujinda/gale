@@ -32,7 +32,6 @@ class StreamServer(object):
                 connection = HTTPConnection(s)
                 gevent.spawn(connection.get_request, self._callback).link_exception(connection.gevent_exception)
             except Exception as e:
-                print(e)
                 s.close()
 
     def raise_error(self, g):

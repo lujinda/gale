@@ -5,22 +5,37 @@
 # Last modified   : 2015-03-25 13:41:03
 # Filename        : /home/ljd/py/coding/gale/test.py
 # Description     : 
-from gale.web import router, app_run
+from gale.web import router, app_run, Application
+from gale.session import FileSessionManager
 
-"""
-@router(url='/hello')
+class MyApplication(Application):
+    def __init__(self):
+        settings = {
+                'debug' : True,
+                'static_path'   :   'static',
+                }
+
+        self.session_manager = FileSessionManager('aaaaa', 
+                3)
+
+        super(MyApplication, self).__init__(settings = settings)
+
+
+app = MyApplication()
+
+@app.router(url='/hello')
 def hello_get(self):
     counts = self.session.get('counts', 0)
     self.session['counts'] = counts + 1
     self.session.save()
     self.render('hello.html', counts = counts + 1)
 
-@router(url='/hello', method='POST')
+@app.router(url='/hello', method='POST')
 def hello_post(self):
     print(self.request.all_arguments)
     print(self.request.files)
 
-app_run()
+app.run()
 
 """
 
@@ -53,3 +68,4 @@ http_server = HTTPServer(MyApplication())
 http_server.listen(('', 8080))
 http_server.run()
 
+"""

@@ -191,6 +191,8 @@ class RequestHandler(object):
         pass
 
     def finish(self):
+        if self._finished:
+            return
         self.on_finish()
         if not self.is_finished:
             self.flush()
@@ -508,6 +510,12 @@ class Application(object):
         return type(utf8(_class_name),
                 (RequestHandler, ), {})
 
+    def run(self, host = '', port = 8080, **server_settings):
+        http_server = HTTPServer(self, 
+                listen_add = (host, port),
+                **server_settings)
+        http_server.run()
+
 
 class UIModule(object):
     def __init__(self, handler):
@@ -640,7 +648,7 @@ def router(*args, **kwargs):
 
     return wraps
 
-def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}, server_settings = {}):
+def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}, server_settings = {}, host = '', port = 8080):
     """在这里的app_path决定着默认template和static_path，默认是执行脚本程序时的工作目录"""
     app_path = app_path or os.getcwd()
     settings.setdefault('debug', True)
@@ -652,7 +660,6 @@ def app_run(app_path = None, settings = {}, log_settings={}, template_settings =
     for handler_func, args, kwargs in HANDLER_LIST:
         app.router(*args, **kwargs)(handler_func)
 
-    http_server = HTTPServer(app, **server_settings)
-    http_server.listen(('', 8080))
+    http_server = HTTPServer(app, (host, port), **server_settings)
     http_server.run()
 

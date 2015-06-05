@@ -70,6 +70,7 @@ class HTTPConnection(IOSocket):
     def send_body(self, body_string):
         """同send_headers"""
         self.send_string(body_string)
+
         self.send_string(CRLF)
 
     def remote_ip(self):
