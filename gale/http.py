@@ -19,16 +19,15 @@ class HTTPConnection(IOSocket):
     def parse_request_headers(self):
         """从原始数据中提取头信息"""
         _first_line, _headers = (self._headers.split(CRLF, 1) +  [''])[:2]
-        self._headers = ''
         return _first_line, _headers
 
     def read_body(self, max_length):
         if max_length == 0: # 如果请求headers中没有指定 Content-Type或者为0,表示没有请求主体
             return ''
 
-        body = self._socket.recv(self._buff)
+        body = self._buff # _buff里的内容是在读取 headers时多读取的数据
         while len(body) < max_length:
-            _body_data = self._socket.recv(self._buff)
+            _body_data = self._socket.recv(self.max_buff)
             if not _body_data:
                 break
             body += _body_data
@@ -36,13 +35,16 @@ class HTTPConnection(IOSocket):
         return body
 
     def read_headers(self):
+        eof = -1
         _headers = ''
         while True:
-            _data = self._socket.recv(1)
+            _data = self._socket.recv(self.max_buff)
             if not _data:
                 break
-            _headers += _data
-            if CRLF * 2 in _headers:
+            self._buff += _data
+            eof = self._buff.find(CRLF * 2)
+            if eof != -1:
+                _headers, self._buff = self._buff[:eof], self._buff[eof + len(CRLF * 2):]
                 break
 
         return _headers.strip()
@@ -60,6 +62,7 @@ class HTTPConnection(IOSocket):
                 break
 
             self._headers = _headers
+            del _headers
             request = get_request(self)
             callback(request)
 

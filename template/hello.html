@@ -2,7 +2,7 @@
 {% block body %}
 counts: {{counts}}
 <img src="{{static_url('baidu.png')}}">
-<form  method='POST'>
+<form enctype="multipart/form-data" method='POST'>
     <input type="file" name="file_a">
     <input type="file" name="file_b">
     <input type="text" name="age">

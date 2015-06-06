@@ -12,9 +12,9 @@ from gevent import socket
 class IOSocket():
     def __init__(self, socket, max_buff= 4096):
         self._socket = socket
-        self._buff = max_buff
+        self.max_buff = max_buff
         self.closed = False
-        self._headers = ''
+        self._buff = ''
 
     def gevent_exception(self, *args, **kwargs):
         self.close()
