@@ -8,6 +8,7 @@
 from gale.web import router, app_run, Application
 from gale.session import FileSessionManager
 
+"""
 class MyApplication(Application):
     def __init__(self):
         settings = {
@@ -23,19 +24,20 @@ class MyApplication(Application):
 
 app = MyApplication()
 
-@app.router(url='/hello')
+"""
+@router(url='/hello')
 def hello_get(self):
     counts = self.session.get('counts', 0)
     self.session['counts'] = counts + 1
     self.session.save()
-    self.render('hello.html', counts = counts + 1)
+    self.render('hello.html', counts = counts)
 
-@app.router(url='/hello', method='POST')
+@router(url='/hello', method='POST')
 def hello_post(self):
     print(self.request.all_arguments)
     print(self.request.files)
 
-app.run()
+app_run()
 
 """
 

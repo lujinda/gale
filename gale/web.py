@@ -8,7 +8,7 @@
 from __future__ import unicode_literals, print_function
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
-from gale.utils import made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode
 from gale.log import access_log, config_logging
 from gale.template import Env
@@ -368,10 +368,9 @@ class ErrorHandler(RequestHandler):
     def ALL(self, status_code):
         raise HTTPError(status_code)
 
-
 class Application(object):
     _template_cache = {}
-    _static_md5_cache = {}
+    _static_md5_cache = ShareDict()
 
     def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}, ui_settings = {}):
         """
@@ -661,5 +660,5 @@ def app_run(app_path = None, settings = {}, log_settings={}, template_settings =
         app.router(*args, **kwargs)(handler_func)
 
     http_server = HTTPServer(app, (host, port), **server_settings)
-    http_server.run()
+    http_server.run(processes = 0)
 

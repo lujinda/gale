@@ -11,7 +11,6 @@ import email.utils
 import time
 import urllib
 from gale import escape
-from gale.version import is_py3
 from gale.config import CRLF
 import mimetypes
 import uuid
@@ -88,3 +87,8 @@ def get_mime_type(file_path):
 def made_uuid():
     return uuid.uuid4().hex
     
+from multiprocessing import Manager
+__mgr = Manager()
+def ShareDict(*args, **kwargs):
+    return __mgr.dict(*args, **kwargs)
+

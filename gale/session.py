@@ -106,27 +106,33 @@ class FileSessionManager(ISessionManager):
         self.session_path = session_path
         self.SESSION_PREFIX = '_glab_sess_'
 
-        # 启动一个监控session过期时间的程序
+        from gale.utils import ShareDict
 
-        _monitor = threading.Thread(target = self._session_monitor)
-        _monitor.setDaemon(True)
-        _monitor.start()
+        self.__file_map = ShareDict() # 文件的访问时间记录到一张hash表中去
+        self.__made_file_map(self.__file_map)
 
-    def _session_monitor(self):
-        while True:
-            self.__check_session()
-            time.sleep(3)
-
-    def __check_session(self):
+    def __made_file_map(self, file_map):
         import glob
         for session_file in glob.glob(os.path.join(self.session_path, self.SESSION_PREFIX) + '*'):
             _stat = os.stat(session_file)
             if time.time() > _stat.st_atime + self.session_timeout:
                 os.remove(session_file)
+            else:
+                file_map[session_file] = _stat.st_atime
+
+    def __update_file_map(self, session_file):
+        for session_file, session_atime in self.__file_map.items():
+            if time.time()  > session_atime + self.session_timeout:
+                os.remove(session_file)
+                del self.__file_map[session_file]
+
+        self.__file_map[session_file] = time.time() # 把刚访问的那个文件在表中的访问日期也更新掉
 
     def _fetch(self, session_id):
         session_file = os.path.join(self.session_path, 
                 '%s%s' % (self.SESSION_PREFIX, session_id))
+
+        self.__update_file_map(session_file) # 每次有访问信息进来的，就去检查下hash表
 
         try:
             with open(session_file, 'rb') as session_fd:

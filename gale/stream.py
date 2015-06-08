@@ -30,7 +30,7 @@ class StreamServer(object):
                     socket.SO_REUSEADDR, 1)
                 s.settimeout(self.timeout) # 设置客户端的超时时间
                 connection = HTTPConnection(s)
-                gevent.spawn(connection.get_request, self._callback).link_exception(connection.gevent_exception)
+                gevent.spawn(connection.get_request, self._callback).link_exception(connection.gevent_exception) # 当成功生成一个request时，就会把request传入callback中去，一般是Application
             except Exception as e:
                 s.close()
 
