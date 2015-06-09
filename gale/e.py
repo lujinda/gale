@@ -25,5 +25,8 @@ class MissArgument(Exception):
 class NotSupportHttpVersion(Exception):
     pass
 
+class LoginHandlerNotExists(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

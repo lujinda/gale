@@ -7,8 +7,8 @@
 # Description     : 
 from __future__ import unicode_literals, print_function
 from gale.http import  HTTPHeaders
-from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError
-from gale.utils import ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists
+from gale.utils import urlquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode
 from gale.log import access_log, config_logging
 from gale.template import Env
@@ -73,6 +73,17 @@ class RequestHandler(object):
     def PUT(self, *args, **kwargs):
         raise NotSupportMethod
 
+    @property
+    def login_url(self):
+        return self.settings.get('login_url')
+
+    @property
+    def current_user(self):
+        return self.get_current_user()
+
+    def get_current_user(self):
+        """如果需要实现用户验证，请在此完成，登录成功返回一个非False的值就行了，如果返回的是False，则表示验证失败，会被转到登录url上。"""
+        return None
     def push(self, _buffer):
         if isinstance(_buffer, dict):
             _buffer = json.dumps(_buffer)
@@ -329,8 +340,10 @@ class RequestHandler(object):
     @property
     def session(self):
         _session = getattr(self, '_session', None)
-        if _session:
+        if _session != None:
             return _session
+
+        print('no session')
 
         from gale.session import Session
 
@@ -343,7 +356,7 @@ class RequestHandler(object):
 
         _session = Session(_session_manager, self)
 
-        self._session = _session
+        setattr(self, '_session', _session)
 
         return _session
 
@@ -456,6 +469,7 @@ class Application(object):
                 self.handlers = handlers
                 break
 
+
         for url_re, url_handler in self.handlers:
             _match = url_re.match(request_path)
             if _match: # 如果匹配上了，就执行下一步
@@ -467,10 +481,16 @@ class Application(object):
         else:
             return ErrorHandler(self, request), (), {'status_code': 404}
 
-    def router(self, url, method = None, base_handler = None, host = '^.*$'):
-        base_handler = base_handler or self.__made_base_handler(host, url) # 根据url来生成一个类
+
+    def router(self, url, method = None, base_handler = None, host = '^.*$', is_login = False, should_login = False):
+        assert not (is_login and should_login) # 同时是登录类，又需要登录，这怎么可能呢
+        base_handler =  self.__made_base_handler(host, url, base_handler) # 根据url来生成一个类
 
         method = method or 'GET'
+
+        if is_login:
+            self.settings['login_url'] = url
+
         if not isinstance(method, (tuple, list)):
             method = [method, ]
 
@@ -481,12 +501,17 @@ class Application(object):
         def method_func_wrap(method_func):
             @wraps(method_func)
             def wrap(self, *args, **kwargs):
-                return method_func(self, *args, **kwargs)
+                if should_login:
+                    _func = authenticated(method_func)
+                else:
+                    _func = method_func
+
+                return _func(self, *args, **kwargs)
 
             for _method in method:
                 setattr(base_handler, _method.upper(), wrap)
 
-            return wraps
+            return wrap
 
         host_handler = (url, base_handler)
         """ 这里需要处理把base添加到原来的vhost_handlers中去，如果已经有.*$了，并且有指定 host，就插入新的，如果没有host指定，则追进到旧的里去"""
@@ -494,7 +519,7 @@ class Application(object):
 
         return method_func_wrap
 
-    def __made_base_handler(self, host, url):
+    def __made_base_handler(self, host, url, base_handler = None):
         _base_handler = None
         url_compile = self.__re_compile(url)
         for re_host, vhost_handlers in self.vhost_handlers: # 先遍历下，看看有没有已经存在了的类
@@ -512,7 +537,7 @@ class Application(object):
         _m = md5(url)
         _class_name = '_T%s_Handler' % (_m.hexdigest())
         return type(utf8(_class_name),
-                (RequestHandler, ), {})
+                (base_handler or RequestHandler, ), {})
 
     def run(self, host = '', port = 8080, **server_settings):
         http_server = HTTPServer(self, 
@@ -520,6 +545,24 @@ class Application(object):
                 **server_settings)
         http_server.run()
 
+
+def authenticated(method):
+    @wraps(method)
+    def wrap(self, *args, **kwargs):
+        if self.current_user:
+            return method(self, *args, **kwargs)
+        else:
+            login_url = self.login_url
+            if not login_url:
+                raise LoginHandlerNotExists('Not found login handler or "login_url" not in application settings')
+            if self.request.method in ('GET', 'HEAD'):
+                callback_url = urlquote(self.request.uri)
+                url_joiner = '?' in login_url and  '&'  or '?'
+                self.redirect(login_url + url_joiner + 'callback=' + callback_url)
+            else:
+                raise HTTPError(403)
+
+    return wrap
 
 class UIModule(object):
     def __init__(self, handler):

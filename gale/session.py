@@ -23,8 +23,9 @@ class SessionData(dict):
     def __init__(self, session_id, hmac_key):
         self.session_id = session_id
         self.hmac_key = hmac_key
+        dict.__init__(self)
 
-class Session(dict):
+class Session(SessionData):
     def __init__(self, session_manager, request_handler):
         self.session_manager = session_manager
         self.request_handler = request_handler
@@ -39,6 +40,9 @@ class Session(dict):
 
         self.session_id = current_session.session_id
         self.hmac_key = current_session.hmac_key
+
+        dict.__init__(self)
+
 
     def save(self):
         self.session_manager.set(self.request_handler, self)

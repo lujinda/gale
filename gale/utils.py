@@ -31,6 +31,8 @@ def urlunquote(param):
     param = urllib.unquote_plus(escape.utf8(param))
     return escape.param_decode(param)
 
+def urlquote(param):
+    return urllib.quote_plus(escape.utf8(param))
 
 code_mess_map = {
             100: 'Continue',

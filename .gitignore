@@ -1,5 +1,4 @@
 *.pyc
 *~
 *.swp
-/sample/*
 /build/*
