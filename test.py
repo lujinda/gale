@@ -6,25 +6,27 @@
 # Filename        : /home/ljd/py/coding/gale/test.py
 # Description     : 
 from gale.web import router, app_run, Application
-from gale.session import FileSessionManager
+from gale.session import FileSessionManager, RedisSessionManager
+from redis import Redis
 
 """
 class MyApplication(Application):
     def __init__(self):
+        db = Redis()
         settings = {
                 'debug' : True,
                 'static_path'   :   'static',
                 }
 
-        self.session_manager = FileSessionManager('aaaaa', 
-                3)
+        self.session_manager = RedisSessionManager('aaaaa', 
+                3, db)
 
         super(MyApplication, self).__init__(settings = settings)
 
 
 app = MyApplication()
-
 """
+
 @router(url='/hello')
 def hello_get(self):
     counts = self.session.get('counts', 0)

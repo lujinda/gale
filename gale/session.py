@@ -157,6 +157,29 @@ class FileSessionManager(ISessionManager):
         del session
         os.remove(session_file)
 
+class RedisSessionManager(ISessionManager):
+    def __init__(self, session_secret, session_timeout, session_db):
+        self.session_secret = session_secret
+        self.session_timeout = session_timeout
+        self.session_db = session_db
+
+    def _fetch(self, session_id):
+        raw_data = self.session_db.get(session_id)
+        if not raw_data:
+            return {}
+
+        self.session_db.expire(session_id, self.session_timeout)
+
+        session_data = pickle.loads(raw_data)
+        return isinstance(session_data, dict) and session_data or {}
+
+    def save_session(self, session):
+        session_data = pickle.dumps(dict(session.items()))
+        self.session_db.setex(session.session_id, session_data, self.session_timeout)
+
+    def remove_session(self, session):
+        self.session_db.delete(session.session_id)
+
 class SessionPathNotExists(Exception):
     pass
 

@@ -19,6 +19,7 @@ import time
 from hashlib import md5
 from functools import wraps
 import os
+import json
 
 try:
     import urlparse # py2
@@ -73,6 +74,10 @@ class RequestHandler(object):
         raise NotSupportMethod
 
     def push(self, _buffer):
+        if isinstance(_buffer, dict):
+            _buffer = json.dumps(_buffer)
+            self.set_header('Content-Type', 'application/json')
+
         _buffer = utf8(_buffer)
         self._push_buffer.append(_buffer)
 
@@ -444,7 +449,7 @@ class Application(object):
     def __find_handler(self, request):
         """根据url来决定将任务交由哪个handler去处理, 会返回handler，还有url参数"""
         request_path = request.path
-        request_host = request.host
+        request_host = request.host.split(':')[0]
 
         for vhost_re, handlers in self.vhost_handlers: # 如果启用了虚拟主机，则做一下host字段的匹配
             if vhost_re.match(request_host):

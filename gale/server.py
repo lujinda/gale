@@ -27,7 +27,7 @@ class HTTPServer(object):
     def listen(self, listen_add):
         self.listen_add = listen_add
 
-    def run(self, listen_add = None, processes = 1):
+    def run(self, listen_add = None, processes = 0):
         _server = self.__made_server(listen_add)
         if processes == 1: # 如果process值为1表示在主进程中执行
             self.__print_run_msg()
