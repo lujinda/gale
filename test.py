@@ -27,7 +27,7 @@ class MyApplication(Application):
 app = MyApplication()
 """
 
-@router(url='/hello')
+@router(url='/hello', method = 'GET')
 def hello_get(self):
     counts = self.session.get('counts', 0)
     self.session['counts'] = counts + 1

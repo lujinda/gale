@@ -654,10 +654,9 @@ def router(*args, **kwargs):
 
 def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}, server_settings = {}, host = '', port = 8080):
     """在这里的app_path决定着默认template和static_path，默认是执行脚本程序时的工作目录"""
-    app_path = app_path or os.getcwd()
     settings.setdefault('debug', True)
-    settings.setdefault('static_path', os.path.join(app_path, 'static'))
-    template_settings.setdefault('template_path', os.path.join(app_path, 'template'))
+    settings.setdefault('static_path', os.path.join(app_path and os.path.dirname(os.path.abspath(app_path)) or os.getcwd(), 'static'))
+    template_settings.setdefault('template_path', os.path.join(app_path and os.path.dirname(os.path.abspath(app_path)) or os.getcwd(), 'template'))
 
     app = Application(settings = settings, 
             log_settings = log_settings, template_settings = template_settings)
