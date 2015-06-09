@@ -5,16 +5,16 @@
         <link rel="stylesheet" href="{{static_url('css/style.css')}}" />
         <title>
             {% block title %}
-            {% endblock %}
+            {% end %}
         </title>
     </head>
     <body>
         {% block body %}
-        {% endblock %}
+        {% end %}
     </body>
     <script src="{{static_url('js/jquery.js')}}"></script>
     <script src="{{static_url('js/jquery.form.js')}}"></script>
     {% block footer_js %}
-    {% endblock %}
+    {% end %}
 </html>
 

@@ -5,8 +5,11 @@
 # Last modified   : 2015-03-26 13:14:11
 # Filename        : gale/utils.py
 # Description     : 
+try:
+    from urlparse import urlsplit
+except ImportError:
+    from urllib.parse import urlsplit
 
-from urlparse import urlsplit
 import email.utils
 import time
 import urllib
@@ -94,3 +97,28 @@ __mgr = Manager()
 def ShareDict(*args, **kwargs):
     return __mgr.dict(*args, **kwargs)
 
+from gale.version import is_py3
+unicode_type = is_py3 and str or unicode
+
+if is_py3:
+    exec("""
+def raise_exc_info(exc_info):
+    raise exc_info[1].with_traceback(exc_info[2])
+
+def exec_in(code, glob, loc=None):
+    if isinstance(code, str):
+        code = compile(code, '<string>', 'exec', dont_inherit=True)
+    exec(code, glob, loc)
+""")
+else:
+    exec("""
+def raise_exc_info(exc_info):
+    raise exc_info[0], exc_info[1], exc_info[2]
+
+def exec_in(code, glob, loc=None):
+    if isinstance(code, basestring):
+        # exec(string) inherits the caller's future imports; compile
+        # the string first to prevent that.
+        code = compile(code, '<string>', 'exec', dont_inherit=True)
+    exec code in glob, loc
+""")

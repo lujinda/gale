@@ -11,7 +11,7 @@ from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, L
 from gale.utils import urlquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode
 from gale.log import access_log, config_logging
-from gale.template import Env
+from gale import template
 from gale.session import FileSessionManager
 import Cookie
 import traceback
@@ -118,21 +118,27 @@ class RequestHandler(object):
         self.set_header('Content-Type', 'text/html;charset=UTF-8')
         self.push(render_string)
 
-
     def render_string(self, template_name, **kwargs):
         for _param_key in kwargs:
             kwargs[_param_key] = param_decode(kwargs[_param_key])
 
-        _template = self.application._template_cache.get(template_name)
-        if not _template:
-            _template = self.template_env.get_template(template_name)
-            self.application._template_cache[template_name] = _template
+        _template_loader = self.application._template_cache.get(template_name)
+        if not _template_loader:
+            _template_loader = self.create_template_loader(self.get_template_path())
+            self.application._template_cache[template_name] = _template_loader
 
+        t = _template_loader.load(template_name)
         name_space = self.get_name_space()
         kwargs.update(name_space)
         kwargs['module'] = self._load_ui_module
         
-        return _template.render(**kwargs)
+        return t.generate(**kwargs)
+
+    def create_template_loader(self, template_path):
+        return template.Loader(template_path)
+
+    def get_template_path(self):
+        return self.settings.get('template_path', 'template')
 
     def get_name_space(self):
         """一些可以在模块中用的变量或方法"""
@@ -150,10 +156,6 @@ class RequestHandler(object):
         static_class = self.settings.get('static_class', StaticFileHandler)
         static_url = static_class.get_static_url(self.settings, file_path)
         return static_url
-
-    @property
-    def template_env(self):
-        return self.application.template_env
 
 
     @property
@@ -343,8 +345,6 @@ class RequestHandler(object):
         if _session != None:
             return _session
 
-        print('no session')
-
         from gale.session import Session
 
         _session_manager = getattr(self.application, 'session_manager', None)
@@ -390,16 +390,14 @@ class Application(object):
     _template_cache = {}
     _static_md5_cache = ShareDict()
 
-    def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {}, template_settings = {}, ui_settings = {}):
+    def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {},  ui_settings = {}):
         """
         log_settings : {'level': log level(default: DEBUG',
                 'datefmt': log date format(default: "%Y-%m-%d %H:%M:%S"),
                 'file': log save to file}
-        template_settings: {'template_path': 'xxx'...} like jinja env
         ui_settings: {module_name: module(extends from UIModule)}
         """
         self.settings = settings
-        self.template_env = Env(template_settings)
         self.ui_settings = ui_settings
 
         if settings.get('static_path'):
@@ -695,14 +693,14 @@ def router(*args, **kwargs):
 
     return wraps
 
-def app_run(app_path = None, settings = {}, log_settings={}, template_settings = {}, server_settings = {}, host = '', port = 8080):
+def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {}, host = '', port = 8080):
     """在这里的app_path决定着默认template和static_path，默认是执行脚本程序时的工作目录"""
     settings.setdefault('debug', True)
     settings.setdefault('static_path', os.path.join(app_path and os.path.dirname(os.path.abspath(app_path)) or os.getcwd(), 'static'))
-    template_settings.setdefault('template_path', os.path.join(app_path and os.path.dirname(os.path.abspath(app_path)) or os.getcwd(), 'template'))
+    settings.setdefault('template_path', os.path.join(app_path and os.path.dirname(os.path.abspath(app_path)) or os.getcwd(), 'template'))
 
     app = Application(settings = settings, 
-            log_settings = log_settings, template_settings = template_settings)
+            log_settings = log_settings)
     for handler_func, args, kwargs in HANDLER_LIST:
         app.router(*args, **kwargs)(handler_func)
 
