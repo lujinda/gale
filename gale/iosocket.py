@@ -14,7 +14,7 @@ class IOSocket():
         self._socket = socket
         self.max_buff = max_buff
         self.closed = False
-        self._buff = ''
+        self._buff = b''
 
     def gevent_exception(self, *args, **kwargs):
         self.close()

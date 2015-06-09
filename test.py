@@ -36,8 +36,9 @@ def hello_get(self):
 
 @router(url='/hello', method='POST')
 def hello_post(self):
-    print(self.request.all_arguments)
-    print(self.request.files)
+ #   print(self.request.all_arguments)
+    pass
+#    print(self.request.files)
 
 app_run()
 

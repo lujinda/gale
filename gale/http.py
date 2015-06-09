@@ -19,11 +19,12 @@ class HTTPConnection(IOSocket):
     def parse_request_headers(self):
         """从原始数据中提取头信息"""
         _first_line, _headers = (self._headers.split(CRLF, 1) +  [''])[:2]
+        self._headers = ''
         return _first_line, _headers
 
     def read_body(self, max_length):
         if max_length == 0: # 如果请求headers中没有指定 Content-Type或者为0,表示没有请求主体
-            return ''
+            return b''
 
         body = self._buff # _buff里的内容是在读取 headers时多读取的数据
         while len(body) < max_length:
@@ -32,11 +33,12 @@ class HTTPConnection(IOSocket):
                 break
             body += _body_data
 
+        self._buff = b''
         return body
 
     def read_headers(self):
         eof = -1
-        _headers = ''
+        _headers = b''
         while True:
             _data = self._socket.recv(self.max_buff)
             if not _data:
@@ -62,7 +64,6 @@ class HTTPConnection(IOSocket):
                 break
 
             self._headers = _headers
-            del _headers
             request = get_request(self)
             callback(request)
 
@@ -258,7 +259,7 @@ def parse_multipart_form_data(content_type, body, args, files):
         gen_log.error('Invalid multipart/form-data: no final boundary')
         return
 
-    parts = body[:end_index].strip().split(b'--' + boundary + CRLF)
+    parts = body[:end_index].split(b'--' + boundary + CRLF)
     for _part in parts:
         if not _part:
             continue

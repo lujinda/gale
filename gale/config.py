@@ -7,5 +7,5 @@
 # Description     : 
 from __future__ import unicode_literals, print_function
 
-CRLF = "\r\n"
+CRLF = b"\r\n"
 
