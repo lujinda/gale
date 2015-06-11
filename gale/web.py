@@ -125,7 +125,8 @@ class RequestHandler(object):
         _template_loader = self.application._template_cache.get(template_name)
         if not _template_loader:
             _template_loader = self.create_template_loader(self.get_template_path())
-            self.application._template_cache[template_name] = _template_loader
+            if self.settings.get('debug') != True:
+                self.application._template_cache[template_name] = _template_loader
 
         t = _template_loader.load(template_name)
         name_space = self.get_name_space()
@@ -139,6 +140,7 @@ class RequestHandler(object):
 
     def get_template_path(self):
         return self.settings.get('template_path', 'template')
+
 
     def get_name_space(self):
         """一些可以在模块中用的变量或方法"""

@@ -5,6 +5,7 @@
 # Last modified : 2015-06-09 10:03:05
 # Filename      : helloword.py
 # Description   : 
+from __future__ import unicode_literals
 from gale.web import app_run, router
 from gale.utils import ShareDict
 import uuid
