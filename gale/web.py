@@ -51,7 +51,6 @@ class RequestHandler(object):
             'Content-Type'  :       'text/plain; charset=utf-8',
             'Server'        :       'tuxpy server',
             'Date'          :       format_timestamp(),
-            'Connection'    :       self.request.is_keep_alive() and 'Keep-Alive' or 'Keep-Alive',
             })
         self.set_status(200)
 
@@ -169,6 +168,8 @@ class RequestHandler(object):
         self._push_buffer = []
         if self.is_finished:
             return
+        
+        self.set_header('Connection', self.request.is_keep_alive() and 'Keep-Alive' or 'Keep-Alive')
 
         if hasattr(self, '_new_cookie'):
             for cookie in self._new_cookie.values():
@@ -220,7 +221,7 @@ class RequestHandler(object):
         if not self.request.is_keep_alive():
             self.request.connection.close()
 
-        self._finished = True
+        self._finished = True # 不管是不是keep alive，都需要把它设置成True，因为连接跟这个没关系，每一次有新的请求时，都会生成一个新的RequestHandler
 
     def set_header(self, name, value):
         value = utf8(value)
@@ -307,10 +308,13 @@ class RequestHandler(object):
             traceback.sys.exc_clear()
         self.push(self.__response_first_line)
 
+    @property
+    def _status_mess(self):
+        return self.status_message or code_mess_map.get(self._status_code) # 如果没有自定义状态代码描述的话，就根据标准来
     
     @property
     def __response_first_line(self):
-        _message = self.status_message or code_mess_map.get(self._status_code) # 如果没有自定义状态代码描述的话，就根据标准来
+        _message = self._status_mess
         if not _message:
             raise ErrorStatusCode
         return "{version} {code} {message}".format(
@@ -438,7 +442,7 @@ class Application(object):
             self.vhost_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
     
 
-    def __call__(self, request):
+    def __call__(self, request, is_wsgi = False):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
             return
 
@@ -452,7 +456,11 @@ class Application(object):
             if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
                 traceback.print_exc()
         finally:
-            handler.finish()
+            if not is_wsgi:
+                handler.finish()
+
+        return handler
+
 
     def __exec_request(self, handler, request, *args, **kwargs):
         handler.ALL(*args, **kwargs) #  所有请求前都要先执行它
@@ -462,7 +470,7 @@ class Application(object):
     def __find_handler(self, request):
         """根据url来决定将任务交由哪个handler去处理, 会返回handler，还有url参数"""
         request_path = request.path
-        request_host = request.host.split(':')[0]
+        request_host = request.host
 
         for vhost_re, handlers in self.vhost_handlers: # 如果启用了虚拟主机，则做一下host字段的匹配
             if vhost_re.match(request_host):
@@ -604,7 +612,6 @@ class StaticFileHandler(RequestHandler):
             for _data in self.get_content(absolute_path):
                 self.push(_data)
 
-        self.finish()
 
     def should_return_304(self, content_version):
         """判断是否需要返回304,判断下request中的内容hash值与计算出来的是否一样就行了"""

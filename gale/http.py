@@ -91,6 +91,7 @@ class HTTPRequest():
         _urlparse = urlsplit(self.uri)
         self.path = _urlparse.path
         self.host = headers.get('Host', '').strip()
+        self.host, self.port = (self.host.split(':') + ['80'])[:2]
         self.query = _urlparse.query
         self.connection = connection
         self._start_time = time()
@@ -210,6 +211,13 @@ class HTTPHeaders(dict):
 
 
         return _headers_string + CRLF * 2
+
+    def get_headers_items(self):
+        items = []
+        for key, values in self._headers_map_list.items():
+            for value in values:
+                items.append((key, value))
+        return items
 
     def __setitem__(self, name, value):
         self._headers_map_list[name] = [value]
