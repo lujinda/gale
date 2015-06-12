@@ -13,6 +13,9 @@ import re
 _XHTML_ESCAPE_RE = re.compile('[&<>"\']')
 _XHTML_ESCAPE_DICT = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',                      '\'': '&#39;'}
 
+long_type = is_py3 and int or long
+unicode_type = is_py3 and str or unicode
+
 def utf8(param):
     if is_py3:
         if isinstance(param, str):
@@ -20,20 +23,28 @@ def utf8(param):
     else:
         if isinstance(param, unicode):
             return param.encode('utf-8')
-    if isinstance(param, (list, tuple, int, float, long)): # 如果参数不是字符串，则把它转成json·字符串，然后再utf8一下
+    if isinstance(param, (list, tuple, int, float, long_type)): # 如果参数不是字符串，则把它转成json·字符串，然后再utf8一下
         return utf8(dumps(param))
 
     return param
 
 def param_decode(param):
     if is_py3:
-        return param
+        if isinstance(param, unicode_type):
+            return param
+        else:
+            return param.decode('utf-8')
+
     if isinstance(param, str):
         return param.decode('utf-8')
 
     return param
 
-to_unicode = param_decode
+
+def to_unicode(param):
+    param = param_decode(param)
+    assert isinstance(param, unicode_type)
+    return param
 
 def param_encode(param):
     if is_py3:

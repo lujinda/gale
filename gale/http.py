@@ -8,77 +8,10 @@
 from gale.config import CRLF
 from gale.e import HeaderFormatError, NotSupportHttpVersion
 from gale.utils import urlsplit, urldecode
-from gale.iosocket import IOSocket
 from gale.log import gen_log
-from gevent import socket
-import traceback
+from gale import escape
 from time import time
 import re
-
-class HTTPConnection(IOSocket):
-    def parse_request_headers(self):
-        """从原始数据中提取头信息"""
-        _first_line, _headers = (self._headers.split(CRLF, 1) +  [''])[:2]
-        self._headers = ''
-        return _first_line, _headers
-
-    def read_body(self, max_length):
-        if max_length == 0: # 如果请求headers中没有指定 Content-Type或者为0,表示没有请求主体
-            return b''
-
-        body = self._buff # _buff里的内容是在读取 headers时多读取的数据
-        while len(body) < max_length:
-            _body_data = self._socket.recv(self.max_buff)
-            if not _body_data:
-                break
-            body += _body_data
-
-        self._buff = b''
-        return body
-
-    def read_headers(self):
-        eof = -1
-        _headers = b''
-        while True:
-            _data = self._socket.recv(self.max_buff)
-            if not _data:
-                break
-            self._buff += _data
-            eof = self._buff.find(CRLF * 2)
-            if eof != -1:
-                _headers, self._buff = self._buff[:eof], self._buff[eof + len(CRLF * 2):]
-                break
-
-        return _headers.strip()
-
-    def get_request(self, callback):
-        """获取用户的请求信息，并可以成功取得一个http请求时，生成一个HTTPRequest, 并激活回调函数(application的__call__)"""
-        while True and self.closed == False:
-            try:
-                _headers = self.read_headers()
-            except socket.timeout: # socket超时的异步不报出
-                _headers = None
-
-            if not _headers:
-                self.close()
-                break
-
-            self._headers = _headers
-            request = get_request(self)
-            callback(request)
-
-    def send_headers(self, headers_string):
-        """headers_string是已经被处理过了的头信息，直接写入就行"""
-        self.send_string(headers_string)
-
-    def send_body(self, body_string):
-        """同send_headers"""
-        self.send_string(body_string)
-
-        self.send_string(CRLF)
-
-    def remote_ip(self):
-        return self._socket.getpeername()[0]
 
 class HTTPRequest():
     def __init__(self, method, uri, version, headers, body, connection, real_ip = True):
@@ -140,8 +73,7 @@ class HTTPRequest():
 
     @property
     def client_ip(self):
-        if self.real_ip:
-            _remote_ip = self.headers.get("X-Real-IP", 
+        if self.real_ip: _remote_ip = self.headers.get("X-Real-IP", 
                 self.headers.get("X-Forwarded-For", self.connection.remote_ip()))
         else:
             _remote_ip = self.connection.remote_ip()
@@ -188,13 +120,13 @@ class HTTPHeaders(dict):
         _headers = {}
         _last_key = None
         assert not isinstance(headers, dict)
-        for header_line in headers.split('\n'):
-            header_line = header_line.rstrip('\r')
-            if header_line.startswith('\x20') or header_line.startswith('\t') :  # 因为http首部是允许换行的, 所以如果这一行是以空格或制表符开头的，需要将信息加到之前那行
+        for header_line in headers.split(b'\n'):
+            header_line = header_line.rstrip(b'\r')
+            if header_line.startswith(b'\x20') or header_line.startswith(b'\t') :  # 因为http首部是允许换行的, 所以如果这一行是以空格或制表符开头的，需要将信息加到之前那行
                 _headers[_last_key] += ' ' + header_line.lstrip()
                 continue
             else:
-                _header_name, _header_value = header_line.split(':', 1)
+                _header_name, _header_value = header_line.split(b':', 1)
             _headers[_header_name] = _header_value.strip()
             _last_key = _header_name
 
@@ -251,18 +183,18 @@ def parse_content_disposition(con_dis):
     """解析multipart中的数据头部中的Content-Dispoition字段"""
     _con_dis = {}
     _key = ''
-    for _field in con_dis.split('; '):
-        if '=' not in _field:
+    for _field in con_dis.split(b'; '):
+        if b'=' not in _field:
             continue
-        key, value = _field.split('=', 1)
+        key, value = _field.split(b'=', 1)
         value = value[1: -1] # 去掉两边的绰号
         _con_dis[key] = value
 
     return _con_dis
 
 def parse_multipart_form_data(content_type, body, args, files):
-    boundary = content_type.split('boundary=')[-1]
-    end_index = body.rfind(b'--' + boundary + '--')
+    boundary = escape.utf8(content_type.split('boundary=')[-1])
+    end_index = body.rfind(b'--' + boundary + b'--')
     if end_index == -1: # 如果没有结尾符的话，则说明这个主体格式是错误的
         gen_log.error('Invalid multipart/form-data: no final boundary')
         return
@@ -274,40 +206,22 @@ def parse_multipart_form_data(content_type, body, args, files):
         _args_part, _body_part = _part.split(CRLF * 2)[:2]
         body = _body_part[:-2]
         headers = HTTPHeaders._parse_headers(_args_part) # 这里的headers是指某一个数据块的头部信息
-        con_dis = headers.get('Content-Disposition', None)
+        con_dis = headers.get(b'Content-Disposition', None)
         if not con_dis:
             gen_log.error('must have Content-Disposition')
             return
 
         con_dis = parse_content_disposition(con_dis)
 
-        name = con_dis['name']
-        if 'filename' in con_dis: # 如果有filename，则表示这是一个文件
-            filename = con_dis.get('filename')
+        name = escape.to_unicode(con_dis[b'name'])
+        if b'filename' in con_dis: # 如果有filename，则表示这是一个文件
+            filename = con_dis.get(b'filename')
             if not filename:
                 continue
 
             files.setdefault(name, []).append(
-                    HTTPFile(filename = filename, body = body,
-                            content_type = headers.get('Content-Type', 'application/octet-stream')))
+                    HTTPFile(filename = escape.to_unicode(filename), body = body,
+                            content_type = escape.to_unicode(headers.get(b'Content-Type', 'application/octet-stream'))))
         else:
-            args.setdefault(name, []).append(body)
-
-def get_request(connection, real_ip=True):
-    """在刚连接时，获取用户的http请求信息, socket是客户端的socket"""
-    if connection.is_close(): # 如果连接出错而被关闭，则返回 False，立刻结束本此请求
-        return False
-    try:
-        _first_line, _headers = connection.parse_request_headers() # 把收到的信息分析出来
-        headers = HTTPHeaders(_headers) # 这是http headers信息，类型是dict
-        method , uri, version = map(lambda s: s.strip(), _first_line.split())
-        _body = connection.read_body(int(headers.get('Content-Length', 0))) # 防止有body数据没有被读完，根据header中 的Content-Length再去读一下, 直到长度达到指定值
-        http_request = HTTPRequest(method = method, uri = uri, version = version,
-            headers = headers, body = _body, connection = connection, real_ip = real_ip)
-        http_request._parse_body()
-        return http_request
-
-    except Exception as e:
-        connection.close()
-        traceback.print_exc()
+            args.setdefault(name, []).append(escape.to_unicode(body))
 

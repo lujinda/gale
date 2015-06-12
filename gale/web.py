@@ -6,14 +6,18 @@
 # Filename        : gale/web.py
 # Description     : 
 from __future__ import unicode_literals, print_function
+try: 
+    import Cookie # py2 
+except ImportError:
+    import http.cookies as Cookie
+
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists
 from gale.utils import urlquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
-from gale.escape import utf8, param_decode
+from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
 from gale.session import FileSessionManager
-import Cookie
 import traceback
 import time
 from hashlib import md5
@@ -119,7 +123,7 @@ class RequestHandler(object):
 
     def render_string(self, template_name, **kwargs):
         for _param_key in kwargs:
-            kwargs[_param_key] = param_decode(kwargs[_param_key])
+            kwargs[_param_key] = native_str(kwargs[_param_key])
 
         _template_loader = self.application._template_cache.get(template_name)
         if not _template_loader:
@@ -243,7 +247,7 @@ class RequestHandler(object):
         return self.request.cookies
 
     def set_cookie(self, name, value, domain=None, expires=None, path = '/', expires_day = None, **kwargs):
-        name, value = utf8(name), utf8(value)
+        name, value = native_str(name), native_str(value)
         self._new_cookie = getattr(self, '_new_cookie', Cookie.SimpleCookie())
         self._new_cookie.pop(name, None) # 如果已经存在了，则删除它
 
@@ -305,7 +309,7 @@ class RequestHandler(object):
         if self.get_status() >= 500:
             self.push(exc + b'\n')
         else:
-            traceback.sys.exc_clear()
+            pass
         self.push(self.__response_first_line)
 
     @property
@@ -340,6 +344,7 @@ class RequestHandler(object):
         return self.__get_one_argument(_args, default)
 
     def get_files(self, name):
+        print(self.request.files)
         return self.request.files.get(name, [])
 
     def get_file(self, name):
@@ -441,7 +446,6 @@ class Application(object):
         if not _re_host_exists:
             self.vhost_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
     
-
     def __call__(self, request, is_wsgi = False):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
             return
@@ -503,7 +507,7 @@ class Application(object):
             method = [method, ]
 
         for _method in method:
-            if _method not in _ALL_METHOD:
+            if _method.upper() not in _ALL_METHOD:
                 raise NotSupportMethod
 
         def method_func_wrap(method_func):
@@ -542,14 +546,14 @@ class Application(object):
         if _base_handler:
             return _base_handler
 
-        _m = md5(url)
+        _m = md5(utf8(url))
         _class_name = '_T%s_Handler' % (_m.hexdigest())
-        return type(utf8(_class_name),
+        return type(native_str(_class_name),
                 (base_handler or RequestHandler, ), {})
 
     def run(self, host = '', port = 8080, **server_settings):
         http_server = HTTPServer(self, 
-                listen_add = (host, port),
+                host = host, port = port,
                 **server_settings)
         http_server.run()
 
@@ -713,6 +717,6 @@ def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {
     for handler_func, args, kwargs in HANDLER_LIST:
         app.router(*args, **kwargs)(handler_func)
 
-    http_server = HTTPServer(app, (host, port), **server_settings)
+    http_server = HTTPServer(app, host = host, port = port, **server_settings)
     http_server.run(processes = 0)
 

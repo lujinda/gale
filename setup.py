@@ -12,6 +12,7 @@ setup(
         author = 'tuxpy',
         packages = [
             'gale',
+            'gale.wsgi',
             ],
         description = 'a web framework like tornado',
         )

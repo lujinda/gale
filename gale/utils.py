@@ -5,10 +5,15 @@
 # Last modified   : 2015-03-26 13:14:11
 # Filename        : gale/utils.py
 # Description     : 
-try:
-    from urlparse import urlsplit
-except ImportError:
-    from urllib.parse import urlsplit
+from __future__ import unicode_literals
+try: # py2
+    from urlparse import urlsplit 
+    from urllib import unquote_plus
+    from urllib import quote_plus
+except ImportError: # py3
+    from urllib.parse import urlsplit # py3
+    from urllib.parse import unquote_plus
+    from urllib.parse import quote_plus
 
 import email.utils
 import time
@@ -22,6 +27,8 @@ def urldecode(params_url):
     if not params_url: # 如果没有东西的话，就返回{}
         return {}
 
+    params_url = escape.param_decode(params_url)
+
     _d = {} # 存的是请求参数的字典形式，值是参数值列表
     for _name, _value in map(lambda x: x.split('=', 1), 
             filter(lambda k_v: '=' in k_v, params_url.split('&'))): # filter 是为了把不带有=号的参数去掉
@@ -31,11 +38,11 @@ def urldecode(params_url):
     return _d
 
 def urlunquote(param):
-    param = urllib.unquote_plus(escape.utf8(param))
+    param = unquote_plus(escape.native_str(param))
     return escape.param_decode(param)
 
 def urlquote(param):
-    return urllib.quote_plus(escape.utf8(param))
+    return quote_plus(escape.utf8(param))
 
 code_mess_map = {
             100: 'Continue',

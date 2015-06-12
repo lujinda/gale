@@ -1,0 +1,19 @@
+#file_input{
+    display: none;
+}
+.btn{
+    display: inline-block;
+    padding: 5px;
+    width: 100px;
+    color: #fff;
+    background-color: red;
+    font-weight: bold;
+    text-align: center;
+    border-radius: 10px;
+    text-decoration: none;
+}
+#img{
+    max-width: 700px;
+    margin: 20px auto;
+}
+

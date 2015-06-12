@@ -5,29 +5,25 @@
 # Last modified : 2015-06-11 15:52:19
 # Filename      : w.py
 # Description   : 
-from gale.wsgi import WSGIApplication
-from gale.web import RequestHandler
-from wsgiref import simple_server
+from __future__ import unicode_literals
+from gale.web import RequestHandler, Application
+from gale.server import HTTPServer
 
-class IndexHandler(RequestHandler):
-    def GET(self):
-        counts = self.session.get('counts', 1)
-        self.session['counts'] = counts + 1
-        self.session.save()
-        self.render('hello.html', counts = counts)
-
-    def POST(self):
-        print(self.get_file('file_b').body)
-
-    def HEAD(self):
-        print('ok')
-
-app = WSGIApplication([
-    (r'/', IndexHandler), ], settings = {
+application = Application(settings = {
         'template': 'template',
         'static_path': 'static'})
 
-server = simple_server.make_server('', 8080, app)
-server.serve_forever()
+@application.router(url=r'/')
+def index(self):
+    self.render('hello.html', counts = "总数")
 
+@application.router(url=r'/', method = 'post')
+def post(self):
+    print(self.request.all_arguments)
+    print(self.request.files)
+
+application.run()
+
+
+# uwsgi --http :8080 --wsgi-file w.py  --master --processes 4 
 

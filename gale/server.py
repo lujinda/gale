@@ -7,28 +7,33 @@
 # Description     : 
 from __future__ import unicode_literals, print_function
 
-import gevent
-from gale.stream import StreamServer
+try:
+    import gevent
+    from gale.stream import StreamServer
+except ImportError as e:
+    from gale.wsgi.stream import StreamServer
+
 from multiprocessing import  cpu_count, Process
 
 class HTTPServer(object):
     """
         http server
     """
-    listen_add = (None, None)
 
-    def __init__(self, callback, listen_add = (None, None), timeout= 60, max_client = 1000):
+    def __init__(self, callback, host = '0.0.0.0', port = 8080, timeout= 60, max_client = 1000):
         assert callable(callback) # callback必须是可调用的
+        self.host = host
+        self.port = port
         self._callback = callback # 表示回调函数
         self.timeout = timeout 
-        self.listen(listen_add)
         self.max_client = max_client 
 
-    def listen(self, listen_add):
-        self.listen_add = listen_add
+    def listen(self, port = 8080, host = ''):
+        self.port = port
+        self.host = host
 
-    def run(self, listen_add = None, processes = 0):
-        _server = self.__made_server(listen_add)
+    def run(self, processes = 0):
+        _server = self.__made_server()
         if processes == 1: # 如果process值为1表示在主进程中执行
             self.__print_run_msg()
             _server.serve_forever()
@@ -37,7 +42,7 @@ class HTTPServer(object):
 
 
     def __print_run_msg(self, processes = None):
-        mess = "listen: http://%s:%s" % (self.host, self.port)
+        mess = "listen: http://%s:%s" % (self.host or '0.0.0.0', self.port)
         if processes:
             mess += ' processes: %d' % processes
 
@@ -59,17 +64,7 @@ class HTTPServer(object):
         for p in run_pool: # 等待
             p.join()
 
-    def __made_server(self, listen_add = None):
-        if isinstance(listen_add, (tuple, list)):
-            self.listen(listen_add)
-        return StreamServer(self.listen_add, self._callback, 
+    def __made_server(self):
+        return StreamServer((self.host, self.port), self._callback, 
                 max_client = self.max_client, timeout = self.timeout)
-
-    @property
-    def port(self):
-        return self.listen_add[1]
-
-    @property
-    def host(self):
-        return self.listen_add[0] or '0.0.0.0'
 

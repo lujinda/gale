@@ -7,6 +7,8 @@
 # Description   : 
 from __future__ import unicode_literals, print_function
 
+from gale.escape import utf8
+
 import uuid
 import threading
 import hmac
@@ -35,7 +37,7 @@ class Session(SessionData):
         except InvalidSessionException:
             current_session = session_manager.get()
 
-        for key, data in current_session.iteritems():
+        for key, data in current_session.items():
             self[key] = data
 
         self.session_id = current_session.session_id
@@ -88,11 +90,11 @@ class ISessionManager(object):
         raise ImportError
 
     def _generate_id(self):
-        _id = b'GALE%s' % hashlib.sha1(self.session_secret + str(uuid.uuid4())).hexdigest()
+        _id = 'GALE%s' % hashlib.sha1(utf8(self.session_secret) + utf8(str(uuid.uuid4()))).hexdigest()
         return _id
 
     def _generate_hmac(self, session_id):
-        return hmac.new(session_id.encode(), self.session_secret, hashlib.sha1).hexdigest()
+        return hmac.new(utf8(session_id), utf8(self.session_secret), hashlib.sha1).hexdigest()
 
 class FileSessionManager(ISessionManager):
     """这是使用文件来实现的seession机制"""
@@ -149,7 +151,7 @@ class FileSessionManager(ISessionManager):
     def save_session(self, session):
         session_file = os.path.join(self.session_path, 
                 '%s%s' % (self.SESSION_PREFIX, session.session_id))
-        session_data = pickle.dumps(dict(session.items()))
+        session_data = pickle.dumps(dict(session.items()), protocol=1) # py2 支持0, 1, 2 (默认是0),py3 支持0, 1 , 2, 3, 4 (默认是3)， 为了兼容，所以指定为1
 
         with self.lock:
             with open(session_file, 'wb') as session_fd:
@@ -178,7 +180,7 @@ class RedisSessionManager(ISessionManager):
         return isinstance(session_data, dict) and session_data or {}
 
     def save_session(self, session):
-        session_data = pickle.dumps(dict(session.items()))
+        session_data = pickle.dumps(dict(session.items()), protocol = 1)
         self.session_db.setex(session.session_id, session_data, self.session_timeout)
 
     def remove_session(self, session):

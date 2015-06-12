@@ -1,0 +1,16 @@
+{% extends "main.html" %}
+{% block title %}
+文件上传demo
+{% end %}
+{% block body %}
+<form action="/file" enctype="multipart/form-data" method='POST' id="up_wrap">
+    <input name="img" type="file" id="file_input">
+    <a href="javascript:choose_file()" class="btn">上传</a>
+</form>
+<img id="img">
+{% end %}
+{% block footer_js %}
+<script src="{{static_url('js/file.js')}}">
+</script>
+{% end %}
+
