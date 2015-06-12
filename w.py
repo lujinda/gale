@@ -6,7 +6,7 @@
 # Filename      : w.py
 # Description   : 
 from __future__ import unicode_literals
-from gale.web import RequestHandler, Application
+from gale.web import RequestHandler, Application, auth_401
 from gale.server import HTTPServer
 
 application = Application(settings = {
@@ -14,6 +14,7 @@ application = Application(settings = {
         'static_path': 'static'})
 
 @application.router(url=r'/')
+@auth_401
 def index(self):
     self.render('hello.html', counts = "总数")
 

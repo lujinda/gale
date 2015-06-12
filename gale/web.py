@@ -87,6 +87,7 @@ class RequestHandler(object):
     def get_current_user(self):
         """如果需要实现用户验证，请在此完成，登录成功返回一个非False的值就行了，如果返回的是False，则表示验证失败，会被转到登录url上。"""
         return None
+
     def push(self, _buffer):
         if isinstance(_buffer, dict):
             _buffer = json.dumps(_buffer)
@@ -393,6 +394,16 @@ class RequestHandler(object):
         _module_instance = _module(self)
         return _module_instance.render(*args, **kwargs)
 
+
+    def get_401_user_pwd(self):
+        """在401验证时，获取用户输入的用户名和密码，返回tuple"""
+        authorization = self.request.headers.get('Authorization')
+        if not authorization:
+            return None, None
+        import base64
+        user_pwd = base64.decodestring(authorization.split()[-1].strip())
+        return user_pwd.split(':', 1)
+
 class ErrorHandler(RequestHandler):
     def ALL(self, status_code):
         raise HTTPError(status_code)
@@ -573,6 +584,17 @@ def authenticated(method):
                 self.redirect(login_url + url_joiner + 'callback=' + callback_url)
             else:
                 raise HTTPError(403)
+
+    return wrap
+
+def auth_401(method):
+    @wraps(method)
+    def wrap(self, *args, **kwargs):
+        if self.current_user:
+            return method(self, *args, **kwargs)
+        else:
+            self.set_header('WWW-authenticate', "Basic realm='Please input'")
+            raise HTTPError(401)
 
     return wrap
 
