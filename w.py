@@ -6,25 +6,28 @@
 # Filename      : w.py
 # Description   : 
 from __future__ import unicode_literals
-from gale.web import RequestHandler, Application, auth_401
+from gale.web import RequestHandler, Application, auth_401, FileHandler
+from gale.wsgi.web import WSGIApplication
 from gale.server import HTTPServer
 
-application = Application(settings = {
+application = Application([('/data/', FileHandler), ]settings = {
+    'debug' :   True,
         'template': 'template',
-        'static_path': 'static'})
-
-@application.router(url=r'/')
-@auth_401
-def index(self):
-    self.render('hello.html', counts = "总数")
+        'static_path': 'http://7jptiz.com1.z0.glb.clouddn.com'})
 
 @application.router(url=r'/', method = 'post')
 def post(self):
     print(self.request.all_arguments)
     print(self.request.files)
 
-application.run()
+@application.router(url=r'/', kwargs = {'hi': 'def'})
+#@auth_401
+def index(self):
+    print(self.kwargs)
+    self.render('hello.html', counts = "总数")
 
+
+application.run()
 
 # uwsgi --http :8080 --wsgi-file w.py  --master --processes 4 
 

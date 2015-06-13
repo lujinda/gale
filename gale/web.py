@@ -34,7 +34,8 @@ _ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE', 'HEAD')
 
 class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
-    def __init__(self, application, request):
+    def __init__(self, application, request, kwargs = None):
+        self.kwargs = kwargs or {}
         self.application = application
         self.request = request
         self._push_buffer = []
@@ -405,7 +406,8 @@ class RequestHandler(object):
         return user_pwd.split(':', 1)
 
 class ErrorHandler(RequestHandler):
-    def ALL(self, status_code):
+    def ALL(self):
+        status_code = self.kwargs.get('status_code', 500)
         raise HTTPError(status_code)
 
 class Application(object):
@@ -445,9 +447,14 @@ class Application(object):
     def add_handlers(self, re_host_string, host_handlers):
         _re_host_exists = False
         _compile_handlers = []
-        for _re_string, _handler in host_handlers:
+        for _a_url_item in host_handlers:
+            assert len(_a_url_item) in (2, 3), "url args length must be 2 or 3 "
+
+            if len(_a_url_item) == 2: # 如果没有传入handler参数，默认设定是空
+                _a_url_item += ({}, )
+            _re_string, _handler, _kwargs = _a_url_item
             _compile_handlers.append((self.__re_compile(_re_string), 
-                _handler))
+                _handler, _kwargs))
 
         for _re, _handlers in self.vhost_handlers:
             if _re.pattern == re_host_string:
@@ -463,9 +470,9 @@ class Application(object):
 
         request.real_ip = self.settings.get('real_ip', True) # 设定是否要获取真实ip地址
 
-        handler, args, kwargs = self.__find_handler(request)
+        handler, url_args, url_kwargs = self.__find_handler(request)
         try:
-            self.__exec_request(handler, request, *args, **kwargs)
+            self.__exec_request(handler, request, *url_args, **url_kwargs)
         except Exception as e:
             handler.raise_error(e) # 把异常传入，并分析，执行错误处理方法(push_error)
             if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
@@ -493,23 +500,24 @@ class Application(object):
                 break
 
 
-        for url_re, url_handler in self.handlers:
+        for url_re, url_handler, kwargs in self.handlers:
             _match = url_re.match(request_path)
             if _match: # 如果匹配上了，就执行下一步
-                return url_handler(self, request), _match.groups(), _match.groupdict()
+                return url_handler(self, request, kwargs = kwargs), _match.groups(), _match.groupdict()
 
         default_handler = self.settings.get('default_handler')
         if default_handler: # 如果指定了默认处理，则调用，否则让ErrorHandler处理它，也就是会被当404处理
             return default_handler(self, request), (), {}
         else:
-            return ErrorHandler(self, request), (), {'status_code': 404}
+            return ErrorHandler(self, request, kwargs = {'status_code': 404}), (), {}
 
 
-    def router(self, url, method = None, base_handler = None, host = '^.*$', is_login = False, should_login = False):
+    def router(self, url, method = None, base_handler = None, host = '^.*$', kwargs = None, is_login = False, should_login = False):
         assert not (is_login and should_login) # 同时是登录类，又需要登录，这怎么可能呢
         base_handler =  self.__made_base_handler(host, url, base_handler) # 根据url来生成一个类
 
         method = method or 'GET'
+        kwargs = kwargs or {}
 
         if is_login:
             self.settings['login_url'] = url
@@ -536,7 +544,7 @@ class Application(object):
 
             return wrap
 
-        host_handler = (url, base_handler)
+        host_handler = (url, base_handler, kwargs)
         """ 这里需要处理把base添加到原来的vhost_handlers中去，如果已经有.*$了，并且有指定 host，就插入新的，如果没有host指定，则追进到旧的里去"""
         self.add_handlers(host, [host_handler, ])
 
@@ -547,10 +555,10 @@ class Application(object):
         url_compile = self.__re_compile(url)
         for re_host, vhost_handlers in self.vhost_handlers: # 先遍历下，看看有没有已经存在了的类
             if (re_host.match(host)):
-                for re_url, _handler in vhost_handlers:
+                for re_url, _handler, _kwargs in vhost_handlers:
                     if re_url.pattern == url_compile.pattern:
                         _base_handler = _handler
-                        vhost_handlers.remove((re_url, _handler))
+                        vhost_handlers.remove((re_url, _handler, _kwargs))
                         break
                 continue
 
@@ -713,6 +721,10 @@ class StaticFileHandler(RequestHandler):
 
     @classmethod
     def get_static_url(cls, settings, file_path):
+        static_path = settings.get('static_path')
+        if static_path.startswith('http'): # 让static同时支持在线资源
+            return urlparse.urljoin(static_path, file_path)
+
         static_prefix = settings.get('static_prefix', '/static/')
         return urlparse.urljoin(static_prefix, file_path)
 

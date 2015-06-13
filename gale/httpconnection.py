@@ -61,7 +61,7 @@ class HTTPConnection(IOSocket):
 
             self._headers = _headers
             request = get_request(self)
-            callback(request)
+            callback(request, False)
 
     def send_headers(self, headers_string):
         """headers_string是已经被处理过了的头信息，直接写入就行"""
