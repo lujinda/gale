@@ -28,5 +28,8 @@ class NotSupportHttpVersion(Exception):
 class LoginHandlerNotExists(Exception):
     pass
 
+class LocalPathNotExist(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

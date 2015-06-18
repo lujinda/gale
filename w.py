@@ -6,11 +6,11 @@
 # Filename      : w.py
 # Description   : 
 from __future__ import unicode_literals
-from gale.web import RequestHandler, Application, auth_401, FileHandler
+from gale.web import RequestHandler, Application, auth_401
 from gale.wsgi.web import WSGIApplication
 from gale.server import HTTPServer
 
-application = Application([('/data/', FileHandler), ]settings = {
+application = Application([('/(.*)', RequestHandler),], settings = {
     'debug' :   True,
         'template': 'template',
         'static_path': 'http://7jptiz.com1.z0.glb.clouddn.com'})

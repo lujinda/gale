@@ -35,5 +35,5 @@ def index(self):
     self.push('hi ' + self.current_user)
 
 
-app_run(__file__)
+app_run(__file__, settings = {'gzip': True})
 

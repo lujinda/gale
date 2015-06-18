@@ -160,6 +160,12 @@ class HTTPHeaders(dict):
         else:
             raise KeyError
 
+    def get(self, name, default = None):
+        if name not in self._headers_map_list:
+            return default
+
+        return self.__getitem__(name)
+
     def add(self, name, value):
         self._headers_map_list.setdefault(name, []).append(value)
 

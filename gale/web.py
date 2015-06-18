@@ -12,7 +12,7 @@ except ImportError:
     import http.cookies as Cookie
 
 from gale.http import  HTTPHeaders
-from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists
+from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist
 from gale.utils import urlquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
@@ -24,6 +24,7 @@ from hashlib import md5
 from functools import wraps
 import os
 import json
+import glob
 
 try:
     import urlparse # py2
@@ -169,19 +170,26 @@ class RequestHandler(object):
     def is_finished(self):
         return self._finished
 
+    def process_buffer(self, _buffer):
+        if self.settings.get('gzip', False):
+            processor = GzipProcessor(self.request.headers)
+            return processor.process(_buffer, self._headers)
+
+        return _buffer
+
     def flush(self, _buffer = None):
         _buffer = _buffer or b''.join(self._push_buffer)
         self._push_buffer = []
         if self.is_finished:
             return
-        
+
         self.set_header('Connection', self.request.is_keep_alive() and 'Keep-Alive' or 'Keep-Alive')
 
         if hasattr(self, '_new_cookie'):
             for cookie in self._new_cookie.values():
                 self.add_header('Set-Cookie', cookie.OutputString())
 
-        _body = utf8(_buffer)
+        _body = self.process_buffer(_buffer)
 
         if self._status_code != 304: 
             self.set_header('Content-Length', len(_body))
@@ -730,6 +738,33 @@ class StaticFileHandler(RequestHandler):
 
     def file_stat(self):
         return os.stat(self.absolute_path)
+
+class GzipProcessor(object):
+    COMPRESSION_LEVEL = 7
+    ALLOW_CONTENT_TYPE = ('text/*', '*javascript', '*json*', '*xml*', 
+            'image/*')
+    def __init__(self, request_headers):
+        self.should_gzip = 'gzip' in request_headers.get('Accept-Encoding', '')
+
+    def process(self, _buffer, response_headers):
+        if not self.should_gzip:
+            return _buffer
+
+        is_compesssion_type = False
+        content_type = response_headers.get('Content-Type', '').split(';')[0]
+        if not content_type: # 如果没有指定 Content-Type则返回 
+            return _buffer
+        for _type in self.ALLOW_CONTENT_TYPE:
+            if glob.fnmatch.fnmatch(content_type, _type):
+                is_compesssion_type = True
+                break
+
+        if not is_compesssion_type:  # 如果不是压缩对象，则也返回
+            return _buffer
+
+        response_headers['Content-Encoding']  = 'gzip'
+
+        return _buffer
 
 from gale.server import HTTPServer
 HANDLER_LIST = []
