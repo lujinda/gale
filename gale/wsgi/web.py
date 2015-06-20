@@ -11,6 +11,7 @@ from gale.escape import native_str
 from gale.web import Application
 
 class WSGIApplication(Application):
+    @staticmethod
     def __call__(self, env, start_response):
         http_request = HTTPRequest(env)
         http_request._parse_body()

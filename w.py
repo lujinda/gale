@@ -19,6 +19,8 @@ application = Application(settings = {
 
 @application.router(url=r'/', method = 'post')
 def post(self):
+    print(self.request.headers)
+    print(self.request.body)
     print(self.request.all_arguments)
     print(self.request.files)
 
