@@ -6,10 +6,10 @@
 # Filename      : http.py
 # Description   : 
 from __future__ import unicode_literals
-from gale.http import HTTPRequest, HTTPHeaders
+from gale.http import HTTPRequest as _HTTPRequest, HTTPHeaders
 from time import time
 
-class HTTPRequest(HTTPRequest):
+class HTTPRequest(_HTTPRequest):
     def __init__(self, env):
         self.method = env['REQUEST_METHOD']
         self.uri = self.path = env['PATH_INFO']
@@ -27,7 +27,7 @@ class HTTPRequest(HTTPRequest):
 
         self.port = env.get('SERVER_PORT', 80)
 
-        headers = HTTPHeaders()
+        headers = HTTPHeaders(is_request = True)
         if env.get('CONTENT_TYPE'):
             dict.__setitem__(headers, 'Content-Type', env['CONTENT_TYPE'])
 

@@ -7,7 +7,7 @@
 # Description   : 
 from __future__ import unicode_literals
 from gale.utils import ShareDict
-from gale.wsgi import WSGIApplication
+from gale.wsgi.web import WSGIApplication
 from wsgiref import simple_server
 import uuid
 import os

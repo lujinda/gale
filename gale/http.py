@@ -34,7 +34,7 @@ class HTTPRequest():
         self._body_arguments = {}
 
     def _parse_body(self):
-        content_type = self.headers.get('Content-Type', '')
+        content_type = self.headers.get(u'Content-Type', '')
 
         if content_type.startswith('multipart/form-data'):
             parse_multipart_form_data(content_type, self.body, args = self._body_arguments,
@@ -100,12 +100,14 @@ class HTTPRequest():
         return _args
 
 class HTTPHeaders(dict):
-    def __init__(self, headers=None):
+    def __init__(self, headers=None, is_request = False):
         dict.__init__(self)
+        self.__is_request = is_request
         headers = headers or {}
         self._headers_map_list = {} # 数据格式: {name: [value1, value2,...]}
 
         if not isinstance(headers, dict): # 如果传入的headers不是字典，表示这是请求headers，则调用dict原有的__setitem__ 将头信息传进去，如果传入是dict，则表示是响应头，则需要处理一下，比如同域名的，但是不同域值要放一块
+            self.__is_request = True
             headers = self._parse_headers(headers)
             for _k, _v in headers.items():
                 dict.__setitem__(self, _k, _v)
@@ -161,6 +163,8 @@ class HTTPHeaders(dict):
             raise KeyError
 
     def get(self, name, default = None):
+        if self.__is_request:
+            return dict.get(self, name, default)
         if name not in self._headers_map_list:
             return default
 

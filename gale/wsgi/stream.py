@@ -10,7 +10,8 @@ from functools import partial
 
 def wsgi_callback(cls, env, start_response):
     from .web import WSGIApplication
-    return WSGIApplication.__call__(cls, env, start_response)
+    wsgi_app = WSGIApplication()
+    return wsgi_app.__call__(env, start_response, cls)
 
 class StreamServer(object):
     """为了兼容py3，py3的server用得是wsgi server"""

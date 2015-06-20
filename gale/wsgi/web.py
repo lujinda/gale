@@ -11,12 +11,12 @@ from gale.escape import native_str
 from gale.web import Application
 
 class WSGIApplication(Application):
-    @staticmethod
-    def __call__(self, env, start_response):
+    def __call__(self, env, start_response, app_instance = None):
+        app_instance = app_instance or self
         http_request = HTTPRequest(env)
         http_request._parse_body()
         from gale import web
-        handler = Application.__call__(self, http_request, is_wsgi = True)
+        handler = Application.__call__(app_instance, http_request, is_wsgi = True)
 
         if hasattr(handler, '_new_cookie'):
             for cookie in handler._new_cookie.values():
