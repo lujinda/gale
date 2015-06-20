@@ -36,7 +36,10 @@ class HTTPConnection(IOSocket):
         eof = -1
         _headers = b''
         while True:
-            _data = self._socket.recv(self.max_buff)
+            try:
+                _data = self._socket.recv(self.max_buff)
+            except socket.error:
+                _data = None
             if not _data:
                 break
             self._buff += _data

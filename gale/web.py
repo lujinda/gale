@@ -25,6 +25,11 @@ from functools import wraps
 import os
 import json
 import glob
+import gzip
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 try:
     import urlparse # py2
@@ -53,9 +58,10 @@ class RequestHandler(object):
         pass
 
     def init_headers(self): 
+        """设置response的headers信息"""
         self.set_headers({
             'Content-Type'  :       'text/plain; charset=utf-8',
-            'Server'        :       'tuxpy server',
+            'Server'        :       'Gale Server',
             'Date'          :       format_timestamp(),
             })
         self.set_status(200)
@@ -173,7 +179,8 @@ class RequestHandler(object):
     def process_buffer(self, _buffer):
         if self.settings.get('gzip', False):
             processor = GzipProcessor(self.request.headers)
-            return processor.process(_buffer, self._headers)
+            return processor.process(_buffer, self._headers, 
+                    self.application._buffer_stringio)
 
         return _buffer
 
@@ -223,12 +230,12 @@ class RequestHandler(object):
         return self.request.client_ip
 
     def on_finish(self):
+        """会在执行完finish时执行"""
         pass
 
     def finish(self):
         if self._finished:
             return
-        self.on_finish()
         if not self.is_finished:
             self.flush()
 
@@ -236,6 +243,7 @@ class RequestHandler(object):
             self.request.connection.close()
 
         self._finished = True # 不管是不是keep alive，都需要把它设置成True，因为连接跟这个没关系，每一次有新的请求时，都会生成一个新的RequestHandler
+        self.on_finish()
 
     def set_header(self, name, value):
         value = utf8(value)
@@ -354,7 +362,6 @@ class RequestHandler(object):
         return self.__get_one_argument(_args, default)
 
     def get_files(self, name):
-        print(self.request.files)
         return self.request.files.get(name, [])
 
     def get_file(self, name):
@@ -421,6 +428,7 @@ class ErrorHandler(RequestHandler):
 class Application(object):
     _template_cache = {}
     _static_md5_cache = ShareDict()
+    _buffer_stringio = StringIO()
 
     def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {},  ui_settings = {}):
         """
@@ -743,10 +751,15 @@ class GzipProcessor(object):
     COMPRESSION_LEVEL = 7
     ALLOW_CONTENT_TYPE = ('text/*', '*javascript', '*json*', '*xml*', 
             'image/*')
+    MIN_LENGTH = 100
+
     def __init__(self, request_headers):
         self.should_gzip = 'gzip' in request_headers.get('Accept-Encoding', '')
 
-    def process(self, _buffer, response_headers):
+    def process(self, _buffer, response_headers, _buffer_stringio):
+        if len(_buffer) < self.MIN_LENGTH:
+            self.should_gzip = False
+
         if not self.should_gzip:
             return _buffer
 
@@ -762,9 +775,16 @@ class GzipProcessor(object):
         if not is_compesssion_type:  # 如果不是压缩对象，则也返回
             return _buffer
 
+
+        _gzip_file = gzip.GzipFile(mode = 'wb', fileobj = _buffer_stringio, compresslevel = self.COMPRESSION_LEVEL)
+        _gzip_file.write(_buffer)
+        _gzip_file.close()
+        compression_data  = _buffer_stringio.getvalue()
+        _buffer_stringio.seek(0)
+
         response_headers['Content-Encoding']  = 'gzip'
 
-        return _buffer
+        return compression_data
 
 from gale.server import HTTPServer
 HANDLER_LIST = []

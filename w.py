@@ -10,17 +10,19 @@ from gale.web import RequestHandler, Application, auth_401
 from gale.wsgi.web import WSGIApplication
 from gale.server import HTTPServer
 
-application = Application([('/(.*)', RequestHandler),], settings = {
+application = Application(settings = {
     'debug' :   True,
         'template': 'template',
-        'static_path': 'http://7jptiz.com1.z0.glb.clouddn.com'})
+        'static_path': 'static',
+        'gzip':True,
+        })
 
 @application.router(url=r'/', method = 'post')
 def post(self):
     print(self.request.all_arguments)
     print(self.request.files)
 
-@application.router(url=r'/', kwargs = {'hi': 'def'})
+@application.router(url=r'/', method='get', kwargs = {'hi': 'def'})
 #@auth_401
 def index(self):
     print(self.kwargs)
