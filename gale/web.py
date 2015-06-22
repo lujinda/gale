@@ -379,6 +379,9 @@ class RequestHandler(object):
         _args = self.request.all_arguments.get(param, [])
         return self.__get_one_argument(_args, default)
 
+    def get_arguments(self, param):
+        return self.request.all_arguments.get(param, [])
+
     def get_files(self, name):
         return self.request.files.get(name, [])
 
@@ -406,12 +409,13 @@ class RequestHandler(object):
 
         return _session
 
-    def __get_one_argument(self, args, default = None):
-        if (args == []) and default != None: # 如果没有参数，但是指定了默认值，就返回默认的
+    def __get_one_argument(self, args, default = []):
+        if (args == []) and (default != []): # 如果没有参数，但是指定了默认值，就返回默认的
             return default
 
-        if not args:
+        if args == []:
             raise MissArgument
+
         return args[0]
 
     @property
