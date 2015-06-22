@@ -23,8 +23,6 @@ def utf8(param):
     else:
         if isinstance(param, unicode):
             return param.encode('utf-8')
-    if isinstance(param, (list, tuple, int, float, long_type)): # 如果参数不是字符串，则把它转成json·字符串，然后再utf8一下
-        return utf8(dumps(param))
 
     return param
 

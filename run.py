@@ -9,7 +9,7 @@ from gale.web import app_run, router
 
 @router(url = '/test', method='GET')
 def test(self):
-    self.render('t.html')
+    self.render('t.html', l = [1, 2, 3])
 
 @router(url = '/test', method = 'POST')
 def login_post(self):

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import absolute_import, division, print_function, with_statement
 
 import datetime
@@ -7,16 +8,9 @@ import posixpath
 import re
 import threading
 
-from gale.log import access_log
 from gale import escape
-from gale.utils import unicode_type, exec_in
-
-class ObjectDict(dict):
-    def __getattr__(self, name):
-        return self.__getitem__(name)
-
-    def __setattr__(self, name, value):
-        self.__setitem__(name, value)
+from gale.log import gen_log
+from gale.utils import  exec_in, unicode_type
 
 try:
     from cStringIO import StringIO  # py2
@@ -25,7 +19,6 @@ except ImportError:
 
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
-
 
 class Template(object):
     """A compiled template.
@@ -64,20 +57,20 @@ class Template(object):
                 "exec", dont_inherit=True)
         except Exception:
             formatted_code = _format_code(self.code).rstrip()
-            access_log.error("%s code:\n%s", self.name, formatted_code)
+            app_log.error("%s code:\n%s", self.name, formatted_code)
             raise
 
     def generate(self, **kwargs):
         """Generate this template with the given arguments."""
         namespace = {
+            "escape": escape.xhtml_escape,
+            "xhtml_escape": escape.xhtml_escape,
             "datetime": datetime,
-            'xhtml_escape':escape.xhtml_escape,
             "_tt_utf8": escape.utf8,  # for internal use
             "_tt_string_types": (unicode_type, bytes),
             # __name__ and __loader__ allow the traceback mechanism to find
             # the generated source code.
             "__name__": self.name.replace('.', '_'),
-            "__loader__": ObjectDict(get_source=lambda name: self.code),
         }
         namespace.update(self.namespace)
         namespace.update(kwargs)
@@ -441,7 +434,7 @@ class _CodeWriter(object):
             ancestors = ["%s:%d" % (tmpl.name, lineno)
                          for (tmpl, lineno) in self.include_stack]
             line_comment += ' (via %s)' % ', '.join(reversed(ancestors))
-        print("    " * indent + line + escape.native_str(line_comment), file=self.file)
+        print("    " * indent + line + escape.utf8(line_comment), file=self.file)
 
 
 class _TemplateReader(object):

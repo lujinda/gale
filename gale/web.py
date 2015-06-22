@@ -137,6 +137,7 @@ class RequestHandler(object):
 
     def render_string(self, template_name, **kwargs):
         for _param_key in kwargs:
+            print(native_str(kwargs[_param_key]))
             kwargs[_param_key] = native_str(kwargs[_param_key])
 
         _template_loader = self.application._template_cache.get(template_name)
