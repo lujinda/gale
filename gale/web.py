@@ -137,7 +137,6 @@ class RequestHandler(object):
 
     def render_string(self, template_name, **kwargs):
         for _param_key in kwargs:
-            print(native_str(kwargs[_param_key]))
             kwargs[_param_key] = native_str(kwargs[_param_key])
 
         _template_loader = self.application._template_cache.get(template_name)
@@ -168,9 +167,18 @@ class RequestHandler(object):
                 'request'   :   self.request, 
                 'static_url'    :   self.get_static_url,
                 '_tt_modules'   :   _UINameSpace(self),
+                'current_user'  :   self.get_current_user(),
                 }
 
+        ext_name_space = self.get_ext_name_space()
+        if not isinstance(ext_name_space, dict):
+            raise TypeError
+        name_space.update(ext_name_space)
         return name_space
+
+    def get_ext_name_space(self):
+        """可以在这里定义一些额外的namespce"""
+        return {}
 
     def get_static_url(self, file_path):
         assert self.static_path, "static_url must had 'static_path' in app\'s settings"
@@ -192,6 +200,9 @@ class RequestHandler(object):
         return _buffer
 
     def flush(self, _buffer = None):
+        if self.request.connection.closed:
+            return
+
         _buffer = _buffer or b''.join(self._push_buffer)
         self._push_buffer = []
         if self.is_finished:
@@ -501,7 +512,7 @@ class Application(object):
             if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
                 traceback.print_exc()
         finally:
-            if not is_wsgi:
+            if (not is_wsgi) and (getattr(handler, 'is_long_poll', False) == False):
                 handler.finish()
 
         return handler
@@ -629,6 +640,14 @@ def auth_401(method):
 
     return wrap
 
+def long_poll(method):
+    @wraps(method)
+    def wrap(self, *args, **kwargs):
+        self.is_long_poll = True
+        return method(self, *args, **kwargs)
+
+    return wrap
+
 class UIModule(object):
     def __init__(self, handler):
         self.handler = handler
@@ -718,13 +737,12 @@ class StaticFileHandler(RequestHandler):
         for _chunk in self.get_content(absolute_path):
             md5er.update(_chunk)
         _md5 = md5er.hexdigest() 
-        #self._md5_cache[absolute_path] = {'md5': _md5,
-        #        'mtime': self.file_stat().st_mtime}
+        self._md5_cache[absolute_path] = {'md5': _md5,
+                'mtime': self.file_stat().st_mtime}
 
         return _md5
 
     def get_cache_version(self, absolute_path):
-        return None
         _cache = self._md5_cache.get(absolute_path)
         if not _cache:
             return None
@@ -754,6 +772,7 @@ class StaticFileHandler(RequestHandler):
 
     def file_stat(self):
         return os.stat(self.absolute_path)
+
 
 class GzipProcessor(object):
     COMPRESSION_LEVEL = 7
