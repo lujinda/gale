@@ -13,7 +13,7 @@ except ImportError:
 
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist
-from gale.utils import urlquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
@@ -509,6 +509,7 @@ class Application(object):
         request.real_ip = self.settings.get('real_ip', True) # 设定是否要获取真实ip地址
 
         handler, url_args, url_kwargs = self.__find_handler(request)
+        url_args = map(urlunquote, url_args)
         try:
             self.__exec_request(handler, request, *url_args, **url_kwargs)
         except Exception as e:
