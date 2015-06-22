@@ -6,9 +6,10 @@
 # Filename      : setup.py
 # Description   : 
 from distutils.core import setup
+from gale import version
 setup(
-        name = 'gale',
-        version = '0,9',
+        name = 'gale_web',
+        version = version,
         author = 'tuxpy',
         packages = [
             'gale',

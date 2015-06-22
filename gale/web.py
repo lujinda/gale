@@ -813,6 +813,7 @@ class GzipProcessor(object):
         _gzip_file.close()
         compression_data  = _buffer_stringio.getvalue()
         _buffer_stringio.seek(0)
+        _buffer_stringio.truncate()
 
         response_headers['Content-Encoding']  = 'gzip'
 
