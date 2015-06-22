@@ -66,6 +66,11 @@ class RequestHandler(object):
             })
         self.set_status(200)
 
+    def set_default_headers(self):
+        """可以在这里设置一些默认的headers信息(使用set_header[s])"""
+        pass
+
+
     def ALL(self, *args, **kwargs):
         pass
 
@@ -161,6 +166,7 @@ class RequestHandler(object):
                 'handler'   :   self,
                 'request'   :   self.request, 
                 'static_url'    :   self.get_static_url,
+                '_tt_modules'   :   _UINameSpace(self),
                 }
 
         return name_space
@@ -389,7 +395,7 @@ class RequestHandler(object):
         return _session
 
     def __get_one_argument(self, args, default = None):
-        if (not args) and default: # 如果没有参数，但是指定了默认值，就返回默认的
+        if (args == []) and default != None: # 如果没有参数，但是指定了默认值，就返回默认的
             return default
 
         if not args:
@@ -711,12 +717,13 @@ class StaticFileHandler(RequestHandler):
         for _chunk in self.get_content(absolute_path):
             md5er.update(_chunk)
         _md5 = md5er.hexdigest() 
-        self._md5_cache[absolute_path] = {'md5': _md5,
-                'mtime': self.file_stat().st_mtime}
+        #self._md5_cache[absolute_path] = {'md5': _md5,
+        #        'mtime': self.file_stat().st_mtime}
 
         return _md5
 
     def get_cache_version(self, absolute_path):
+        return None
         _cache = self._md5_cache.get(absolute_path)
         if not _cache:
             return None
@@ -785,6 +792,15 @@ class GzipProcessor(object):
         response_headers['Content-Encoding']  = 'gzip'
 
         return compression_data
+
+class _UINameSpace(object):
+    def __init__(self, handler):
+        self.handler = handler
+    
+    def __getattr__(self, module):
+        _module = self.handler.ui_settings.get(module)
+        _module_instance = _module(self.handler)
+        return _module_instance.render
 
 from gale.server import HTTPServer
 HANDLER_LIST = []

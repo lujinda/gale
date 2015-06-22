@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="{{static_url('jquery.js')}}"></script>
+    </head>
+    <body>
+        <h1>My First Web Page</h1>
+        <form method='POST' action="/test">
+        <input id="firstname" type='text'>
+        <input id="lastname" type='text'>
+        <button type="submit">确定 </button>
+        </form>
+        <div id="result">
+        </div>
+        
+    </body>
+        <script>
+            $('form').submit(function(){
+                $.ajax({
+                    url:'/test',
+                    type:'POST',
+                    data: {'firstname': $('#firstname').val(),
+                        'lastname': $('#lastname').val()},
+                    success: function(response){
+                        $('#result').html(response);
+                    },
+                    error: function(){
+                        alert('error');
+                    },
+                });
+                return false;
+            });
+        </script>
+</html>

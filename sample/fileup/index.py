@@ -11,6 +11,7 @@ from gale.utils import ShareDict
 import uuid
 
 all_files = ShareDict()
+"""
 @router(url='/')
 def index(self):
     self.render('index.html')
@@ -42,18 +43,17 @@ def file_post(self):
 app_run(__file__)
 
 """
-from gale.web import Application, RequestHandler
-from gale.server import HTTPServer
 import os
 import uuid
+from public import MyRequestHandler
 
 all_files = {}
 
-class IndexHandler(RequestHandler):
+class IndexHandler(MyRequestHandler):
     def GET(self):
         self.render('index.html')
 
-class FileHandler(RequestHandler):
+class FileHandler(MyRequestHandler):
     def GET(self):
         uuid = self.get_argument('uuid', '')
         _file = all_files.get(uuid)
@@ -76,30 +76,3 @@ class FileHandler(RequestHandler):
         _result['img_url'] = '/file?uuid='  + file_uuid
 
         self.push(_result)
-
-class MyApplication(Application):
-    def __init__(self):
-        handlers = [
-                (r'/', IndexHandler), 
-                (r'/file', FileHandler), 
-                ]
-
-        template_settings = {
-                'template_path'  :  os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                    'template'),
-                }
-        settings = {
-                'debug' : True,
-                'static_path'   : os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                    'static'),
-                }
-
-        super(MyApplication, self).__init__(handlers, template_settings = template_settings,
-                settings = settings)
-
-app = MyApplication()
-http_server = HTTPServer(app)
-http_server.listen(('', 8080))
-http_server.run()
-
-"""
