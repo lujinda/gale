@@ -161,7 +161,8 @@ class FileSessionManager(ISessionManager):
         session_file = os.path.join(self.session_path, 
                 '%s%s' % (self.SESSION_PREFIX, session.session_id))
         del session
-        os.remove(session_file)
+        if os.path.exists(session_file):
+            os.remove(session_file)
 
 class RedisSessionManager(ISessionManager):
     def __init__(self, session_secret, session_timeout, session_db):

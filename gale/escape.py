@@ -56,6 +56,7 @@ if is_py3:
 else:
     native_str = utf8
 
+
 def xhtml_escape(value):
     return _XHTML_ESCAPE_RE.sub(lambda match: _XHTML_ESCAPE_DICT[match.group(0)],
             to_unicode(value))

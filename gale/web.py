@@ -167,7 +167,7 @@ class RequestHandler(object):
                 'request'   :   self.request, 
                 'static_url'    :   self.get_static_url,
                 '_tt_modules'   :   _UINameSpace(self),
-                'current_user'  :   self.get_current_user(),
+                'current_user'  :   self.get_current_user,
                 }
 
         ext_name_space = self.get_ext_name_space()
@@ -200,6 +200,7 @@ class RequestHandler(object):
         return _buffer
 
     def flush(self, _buffer = None):
+        self.before_flush()
         if self.request.connection.closed:
             return
 
@@ -249,6 +250,10 @@ class RequestHandler(object):
 
     def on_finish(self):
         """会在执行完finish时执行"""
+        pass
+
+    def before_flush(self):
+        """在刷新前做点事"""
         pass
 
     def finish(self):

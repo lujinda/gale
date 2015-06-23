@@ -34,7 +34,7 @@ class WSGIApplication(Application):
         if handler._status_code != 304: 
             handler.set_header('Content-Length', len(_body))
 
-        headers = [(native_str(_k), native_str(_v)) for _k, _v in handler._headers.get_headers_items()] # 在python2.7 中，不允许headers是unicode
+        headers = [(native_str(_k), str(native_str(_v))) for _k, _v in handler._headers.get_headers_items()] # 在python2.7 中，不允许headers是unicode
         write = start_response(native_str(status), headers) 
 
         write(_body)

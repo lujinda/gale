@@ -8,7 +8,6 @@
 from __future__ import unicode_literals, print_function
 
 try:
-    import gevent
     from gale.stream import StreamServer
 except ImportError as e:
     from gale.wsgi.stream import StreamServer
