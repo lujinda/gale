@@ -230,7 +230,7 @@ class RequestHandler(object):
 
     def log_print(self):
         _log = "{method} {path} {response_first_line} {client_ip} {request_time}".format(
-                method = self.request.method, path = self.request.path,
+                method = self.request.method, path = self.request.uri,
                 response_first_line = self.__response_first_line,
                 client_ip = self.client_ip,
                 request_time = "%.2f%s" % (self.request.request_time * 1000, 'ms')
