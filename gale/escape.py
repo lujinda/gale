@@ -6,7 +6,7 @@
 # Filename      : escape.py
 # Description   : 
 from __future__ import unicode_literals
-from gale.version import is_py3
+from gale.py_ver import is_py3
 from json import dumps
 import re
 
