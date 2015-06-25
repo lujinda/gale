@@ -7,8 +7,17 @@
 # Description   : 
 from gale.server import HTTPServer
 from app import MyApplication
+import sys
+
+def get_port():
+    if len(sys.argv) < 2:
+    return 8000
+    port = sys.argv[1]
+    if not port.isdigit():
+        port = 8000
+    return int(port)
 
 server = HTTPServer(MyApplication())
-server.listen(8080)
+server.listen(get_port())
 server.run()
 
