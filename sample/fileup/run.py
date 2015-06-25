@@ -11,7 +11,7 @@ import sys
 
 def get_port():
     if len(sys.argv) < 2:
-    return 8000
+        return 8000
     port = sys.argv[1]
     if not port.isdigit():
         port = 8000
