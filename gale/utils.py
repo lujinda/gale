@@ -38,6 +38,8 @@ def urldecode(params_url):
     return _d
 
 def urlunquote(param):
+    if param == None:
+        return param
     param = unquote_plus(escape.native_str(param))
     return escape.param_decode(param)
 

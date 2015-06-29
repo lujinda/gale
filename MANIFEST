@@ -9,12 +9,12 @@ gale/http.py
 gale/httpconnection.py
 gale/iosocket.py
 gale/log.py
+gale/py_ver.py
 gale/server.py
 gale/session.py
 gale/stream.py
 gale/template.py
 gale/utils.py
-gale/version.py
 gale/web.py
 gale/wsgi/__init__.py
 gale/wsgi/http.py
