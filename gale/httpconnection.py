@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 #coding:utf-8
 # Author        : tuxpy
 # Email         : q8886888@qq.com.com
