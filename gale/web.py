@@ -842,7 +842,7 @@ def router(*args, **kwargs):
 
     return wraps
 
-def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {}, host = '', port = 8080):
+def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {}, host = '', port = 8080, processes = 0):
     """在这里的app_path决定着默认template和static_path，默认是执行脚本程序时的工作目录"""
     settings.setdefault('debug', True)
     settings.setdefault('static_path', os.path.join(app_path and os.path.dirname(os.path.abspath(app_path)) or os.getcwd(), 'static'))
@@ -854,5 +854,5 @@ def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {
         app.router(*args, **kwargs)(handler_func)
 
     http_server = HTTPServer(app, host = host, port = port, **server_settings)
-    http_server.run(processes = 0)
+    http_server.run(processes = processes)
 

@@ -16,5 +16,5 @@ def login_post(self):
     print(self.get_argument('ljd', '1'))
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(__file__, settings = {'gzip': True})
+app_run(__file__, settings = {'gzip': True}, processes = 1)
 

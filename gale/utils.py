@@ -22,6 +22,12 @@ from gale import escape
 from gale.config import CRLF
 import mimetypes
 import uuid
+import fcntl
+
+def set_close_exec(fd):
+    flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+    fcntl.fcntl(fd, fcntl.F_SETFD, flags|fcntl.FD_CLOEXEC)
+    # 设置close exec标志，这样在reload时会关闭socket
 
 def urldecode(params_url):
     if not params_url: # 如果没有东西的话，就返回{}
@@ -131,3 +137,5 @@ def exec_in(code, glob, loc=None):
         code = compile(code, '<string>', 'exec', dont_inherit=True)
     exec code in glob, loc
 """)
+
+

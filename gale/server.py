@@ -19,19 +19,24 @@ class HTTPServer(object):
         http server
     """
 
-    def __init__(self, callback, host = '0.0.0.0', port = 8080, timeout= 60, max_client = 1000):
+    def __init__(self, callback, host = '0.0.0.0', port = 8080, timeout= 60, max_client = 1000, autoreload = True):
         assert callable(callback) # callback必须是可调用的
         self.host = host
         self.port = port
         self._callback = callback # 表示回调函数
         self.timeout = timeout 
         self.max_client = max_client 
+        self.autoreload = autoreload
 
     def listen(self, port = 8080, host = ''):
         self.port = port
         self.host = host
 
     def run(self, processes = 0):
+        if self.autoreload and processes != 1:  # 自动重载不支持多进程模式，自动关闭自动重载
+            self.autoreload = False
+            print("autoreload not suport multi procesess")
+
         _server = self.__made_server()
         if processes == 1: # 如果process值为1表示在主进程中执行
             self.__print_run_msg()
@@ -65,5 +70,5 @@ class HTTPServer(object):
 
     def __made_server(self):
         return StreamServer((self.host, self.port), self._callback, 
-                max_client = self.max_client, timeout = self.timeout)
+                max_client = self.max_client, timeout = self.timeout, autoreload = self.autoreload)
 

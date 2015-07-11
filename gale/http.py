@@ -32,6 +32,7 @@ class HTTPRequest():
         self.cookies = self.__get_cookies()
         self.files = {}
         self._body_arguments = {}
+        self.client_ip = self.__remote_ip()
 
     def _parse_body(self):
         content_type = self.headers.get(u'Content-Type', '')
@@ -71,12 +72,12 @@ class HTTPRequest():
 
         return False
 
-    @property
-    def client_ip(self):
+    def __remote_ip(self):
         if self.real_ip: _remote_ip = self.headers.get("X-Real-IP", 
                 self.headers.get("X-Forwarded-For", self.connection.remote_ip()))
         else:
             _remote_ip = self.connection.remote_ip()
+
 
         return _remote_ip
 
@@ -110,7 +111,7 @@ class HTTPHeaders(dict):
             self.__is_request = True
             headers = self._parse_headers(headers)
             for _k, _v in headers.items():
-                dict.__setitem__(self, _k, _v)
+                dict.__setitem__(self, _k.title(), _v)
 
         for _k, _v in headers.items():
             self[_k] = _v
