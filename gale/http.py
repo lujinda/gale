@@ -137,7 +137,7 @@ class HTTPHeaders(dict):
 
     def get_response_headers_string(self, first_line):
         """生成响应头，并加上最后的两个CRLF"""
-        _headers_string = first_line
+        _headers_string = escape.utf8(first_line)
         for _name, _value_list in self._headers_map_list.items():
             for _value in _value_list:
                 _header_line = "{name}: {value}".format(

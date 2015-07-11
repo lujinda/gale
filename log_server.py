@@ -6,14 +6,33 @@
 # Description   : 
 from gale.web import router, app_run
 import re
+import ast
+import logging
+
 re_float = re.compile(r'^\d*\.\d*$')
 re_int = re.compile(r'^\d*\d$')
+re_tuple = re.compile(r'^\(.*\)$')
+
+def get_logger():
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s %(lineno)s %(levelname)s %(message)s", datefmt = "%Y-%m-%d %H:%M:%s")
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger('test')
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+
+
+    return logger
 
 def parse_value(v):
     if re_float.match(v):
         return float(v)
     elif re_int.match(v):
         return int(v)
+    elif re_tuple.match(v):
+        return ast.literal_eval(v)
     elif v == 'None':
         return None
 
@@ -29,7 +48,9 @@ def log(self):
             for __v in _v:
                 log_dict.setdefault(_k, []).append(parse_value(__v))
 
-    print(self.request.all_arguments)
+    log_record = logging.makeLogRecord(log_dict)
+    logger = get_logger()
+    logger.handle(log_record)
 
 app_run(port = 8009)
 
