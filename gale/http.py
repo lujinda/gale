@@ -85,6 +85,14 @@ class HTTPRequest():
     def request_time(self):
         return time() - self._start_time
 
+    def get_header(self, name, default = None):
+        """获取http header，不区分大小写, 并且Referrer和Referer"""
+        name = name.title()
+        if name == 'Referrer':
+            name = 'Referer'
+
+        return self.headers.get(name, default)
+
     @property
     def query_arguments(self):
         return urldecode(self.query)
