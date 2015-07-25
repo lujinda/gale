@@ -12,7 +12,7 @@ except ImportError:
     import http.cookies as Cookie
 
 from gale.http import  HTTPHeaders
-from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist
+from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError
 from gale.utils import urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
@@ -20,16 +20,23 @@ from gale import template
 from gale.session import FileSessionManager
 import traceback
 import time
-from hashlib import md5
 from functools import wraps
+import hashlib
+import hmac
 import os
 import json
 import glob
 import gzip
+import re
+import base64
+
 try:
     from cStringIO import StringIO
 except ImportError:
-    from StringIO import StringIO
+    try:
+        from StringIO import StringIO
+    except ImportError:  #  py3
+        from io import StringIO
 
 try:
     import urlparse # py2
@@ -37,6 +44,8 @@ except ImportError:
     import urllib.parse as urlparse # py3
 
 _ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE', 'HEAD')
+re_signed_cookie = re.compile(r'^\|\d+')
+
 
 class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
@@ -320,7 +329,32 @@ class RequestHandler(object):
             self.clear_cookie(name, path = path, domain = domain)
 
     def get_cookie(self, cookie_name, default = None):
-        return self.cookies.get(cookie_name, default)
+        value = self.cookies.get(cookie_name, default)
+        if value and value[0] == '\"' and value[-1] == '\"':
+            return value[1: -1]
+        else:
+            return value
+
+    def get_signed_cookie(self, cookie_name, default = None):
+        secret = self.settings.get('cookie_secret', None)
+        if not secret:
+            raise CookieError("use signed cookie app\'s settings must has 'cookie_secret'")
+        value = self.get_cookie(cookie_name)
+        if value == None:
+            return default
+
+        if not re_signed_cookie.match(value):
+            raise CookieError("signed_cookie format error")
+
+        return decode_signed_cookie(secret, cookie_name, value)
+
+    def set_signed_cookie(self, name, value, *args, **kwargs):
+        secret = self.settings.get('cookie_secret', None)
+        if not secret:
+            raise CookieError("use signed cookie app\'s settings must has 'cookie_secret'")
+
+        signed_value = encode_signed_cookie(secret, name, value)
+        self.set_cookie(name, signed_value, *args, **kwargs)
 
     def set_status(self, status_code = 200, status_message = None):
         self.status_message = status_message # 可以自定义状态代码描述
@@ -483,7 +517,6 @@ class Application(object):
 
     def __re_compile(self, re_string):
         """把正则规则都编译了，加快速度"""
-        import re
         re_string = "%s%s%s" % ((not re_string.startswith('^')) and '^' or '', 
             re_string, (not re_string.endswith('$')) and '$' or '')  # 自动给url加上开头与结尾
         return re.compile(re_string)
@@ -610,7 +643,7 @@ class Application(object):
         if _base_handler:
             return _base_handler
 
-        _m = md5(utf8(url))
+        _m = hashlib.md5(utf8(url))
         _class_name = '_T%s_Handler' % (_m.hexdigest())
         return type(native_str(_class_name),
                 (base_handler or RequestHandler, ), {})
@@ -744,7 +777,7 @@ class StaticFileHandler(RequestHandler):
         if _cache_version:
             return _cache_version
 
-        md5er = md5()
+        md5er = hashlib.md5()
         for _chunk in self.get_content(absolute_path):
             md5er.update(_chunk)
         _md5 = md5er.hexdigest() 
@@ -833,6 +866,44 @@ class _UINameSpace(object):
         _module = self.handler.ui_settings.get(module)
         _module_instance = _module(self.handler)
         return _module_instance.render
+
+def create_cookie_signature(secret):
+    hash_obj = hmac.new(utf8(secret),digestmod =  hashlib.sha1)
+    return utf8(hash_obj.hexdigest()).upper()
+
+def encode_signed_cookie(secret, name, value):
+    name = utf8(name)
+    value = utf8(value)
+    value = base64.b64encode(value)
+    signed_secret = create_cookie_signature(secret)
+    signed_cookie = "|%s:%s|%s:%s%s" %(
+            len(name), name, len(value), value, signed_secret)
+
+    return signed_cookie
+
+def decode_signed_cookie(secret, name, value):
+    assert value[0] == '|'
+    signed_cookie = value
+    def split_signed_cookie(rest):
+        offset = rest.find(':')
+        field_length = int(rest[1: offset])
+        field_value = rest[offset + 1: offset + field_length + 1]
+
+        rest = rest[field_length + offset + 1: ]
+
+        return field_value, rest
+
+    try:
+        field_name, rest = split_signed_cookie(signed_cookie)
+        field_value, rest = split_signed_cookie(rest)
+    except ValueError:
+        return None
+
+
+    if create_cookie_signature(secret) != rest:
+        return None
+
+    return base64.b64decode(field_value)
 
 from gale.server import HTTPServer
 HANDLER_LIST = []

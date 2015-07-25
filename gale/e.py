@@ -31,5 +31,8 @@ class LoginHandlerNotExists(Exception):
 class LocalPathNotExist(Exception):
     pass
 
+class CookieError(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

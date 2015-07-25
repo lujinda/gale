@@ -30,8 +30,10 @@ def param_decode(param):
     if is_py3:
         if isinstance(param, unicode_type):
             return param
-        else:
+        elif isinstance(param, bytes):
             return param.decode('utf-8')
+        else:
+            return param_decode(str(param))
 
     if isinstance(param, str):
         return param.decode('utf-8')
