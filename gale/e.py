@@ -34,5 +34,8 @@ class LocalPathNotExist(Exception):
 class CookieError(Exception):
     pass
 
+class CacheError(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

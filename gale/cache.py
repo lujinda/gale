@@ -1,43 +1,184 @@
 #!/usr/bin/env python
 #coding:utf-8
-# Author        : tuxpy
-# Email         : q8886888@qq.com.com
+# Author        : tuxpy # Email         : q8886888@qq.com.com
 # Last modified : 2015-06-09 08:38:20
 # Filename      : cache.py
 # Description   : 
+from collections import OrderedDict
+from gale.e import CacheError
 import time
+import hashlib
+from gale.escape import utf8
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
-class MemCacheModel(object):
-    cache = {}
-    cache_key = []
-    def __init__(self, max_length = 1000):
-        self.max_length = max_length
+class ICacheManager(object):
+    def get(self, key): 
+        """获取cache""" 
+        raise ImportError
 
-    def set(self, key, value, ex = 86400):
-        if len(self.cache_key) > self.max_length:
-            _old_key = self.cache_key.pop(0)
-            del self.cache[key]
+    def set(self, key, value, expire = None):
+        """设置一个cache,可传入key和expire"""
+        raise ImportError
+
+    def flush_all(self):
+        """清空所有缓存"""
+        raise ImportError
+
+    def flush(self, key):
+        """清删除某个key"""
+        raise ImportError
+
+    @property
+    def __name__(self):
+        raise ImportError
+
+class MemCacheManager(ICacheManager):
+    """基于内存的"""
+    _cache_dict = OrderedDict() # 这是为了对那些不经常访问的数据做删除，所以要用到有序的dict
+    _expire_dict = OrderedDict()  # 存过期时间的map
+    def __init__(self, expire = 7200, max_size = 100):
+        self.expire = expire
+        self.max_size = max_size
+
+    def set(self, key, value, expire = None):
+        self.flush(key)
+        expire = expire or self.expire
+        assert isinstance(expire, int)
+        self._cache_dict[key] = value
+        self._expire_dict[key] = int(time.time()) + expire
+        self.clearup()
         
-        if not self.cache.has_key(key): # 如果key不存在于self.cache中，则表示这是新加的，需要把key添加到列表中去
-            self.cache_key.append(key)
+    def flush(self, key):
+        if self._cache_dict.has_key(key):
+            del self._cache_dict[key]
+            del self._expire_dict[key]
 
-        self.cache[key] = {'value': value, 'ex': ex + time.time()}
-
-        assert len(self.cache) == len(self.cache_key)
+    def flush_all(self):
+        self._cache_dict.clear()
+        self._expire_dict.clear()
 
     def get(self, key):
-        assert len(self.cache) == len(self.cache_key)
-        if not self.cache.has_key(key):
+        self.clearup()
+        return self._cache_dict.get(key, None)
+
+    def clearup(self):
+        now = int(time.time())
+        for key in self._expire_dict.iterkeys():
+            if now > self._expire_dict[key]:
+                self.flush(key)
+            else:
+                break # 因为是根据插入的次序排的，有一个不过期，就说明后面的都不会过期了。
+
+        while len(self._cache_dict) > self.max_size:
+            for key in self._cache_dict.iterkeys():
+                self.flush(key)
+
+
+    @property
+    def __name__(self):
+        return 'mem'
+
+class RedisCacheManager(ICacheManager):
+    def __init__(self, db, expire = 7200, prefix = None):
+        self.expire = expire
+        self.db = db
+        self.prefix = prefix or 'gale:redis_cache:'
+
+    def set(self, key, value, expire = None):
+        key = self.prefix + utf8(key)
+        expire = expire or self.expire
+        value = pickle.dumps(value, protocol = 1)
+
+        pipe = self.db.pipeline()
+        pipe.set(key, value)
+        pipe.expire(key, expire)
+        result_list = pipe.execute()
+
+        for result in result_list:
+            assert result
+
+    def get(self, key):
+        key = self.prefix + utf8(key)
+        value = self.db.get(key)
+        if not value:
             return None
-        else:
-            _cache_value = self.cache[key]
-            self.cache_key.remove(key)
 
-            if time.time() > _cache_value['ex']: # 如果已经过期了，则就删除它
-                del self.cache[key]
-                return None
+        value = pickle.loads(value)
 
-            self.cache_key.append(key)
+        return value
 
-            return _cache_value['value']
+    def flush_all(self):
+        pipe = self.db.pipeline()
+        for key in self.db.keys(self.prefix + '*'):
+            pipe.delete(key)
+
+        pipe.execute()
+
+    def flush(self, key):
+        self.db.delete(key)
+
+    @property
+    def __name__(self):
+        return 'redis'
+
+def _generate_key(key, *args, **kwargs):
+    m = hashlib.md5(key)
+    [m.update(str(arg)) for arg in args]
+    [m.update("%s=%s" % tuple(item)) for item in kwargs.items()]
+
+    return m.hexdigest()
+
+def cache(key = None, expire = None, on = None):
+    """on表示cache存在哪，可选mem,和redis，如果没有选，则默认"""
+    def outer_wrap(func):
+        def inner_wrap(hdl, *args, **kwargs):
+            cache_manager = hdl.get_cache_manager(on)
+            _key = key or (func.__name__ + hdl.__class__.__name__ + hdl.__module__)
+            _key = _generate_key(_key, args, kwargs)
+            cache = cache_manager.get(_key)
+            if cache:
+                return cache
+
+            value = func(hdl, *args, **kwargs)
+            cache_manager.set(_key, value, expire)
+
+            return value
+
+        return inner_wrap
+
+    return outer_wrap
+
+def page(expire = None, on = None):
+    def outer_wrap(func):
+        def inner_wrap(hdl, *args, **kwargs):
+            if hdl.request.method != 'GET':
+                raise CacheError('page cache only support GET method')
+            cache_manager = hdl.get_cache_manager(on)
+            _key = hdl.request.uri
+            cache = cache_manager.get(_key)
+            if cache and cache['status'] in (200, 304):
+                hds = cache['headers']
+                hdl.set_header('Content-Type', hds['Content-Type'])
+                hdl.set_header('Set-Cookie', hds.get('Set-Cookie'))
+                hdl.set_header('Server', 'Gale Cache')
+                hdl.set_status(cache['status'])
+                hdl.push(cache['body'])
+                return 
+
+            hdl.cache_page = True
+            result = func(hdl, *args, **kwargs)
+            hdl.flush()
+            if hdl.body:  # 只在200和304时有body
+                cache = {'status': hdl._status_code, 
+                        'headers': hdl._headers, 'body': hdl.body}
+                cache_manager.set(_key, cache, expire)
+
+            return result
+
+        return inner_wrap
+
+    return outer_wrap
 

@@ -12,7 +12,7 @@ except ImportError:
     import http.cookies as Cookie
 
 from gale.http import  HTTPHeaders
-from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError
+from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
 from gale.utils import urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
@@ -54,6 +54,8 @@ class RequestHandler(object):
         self.application = application
         self.request = request
         self._push_buffer = []
+        self.cache_page = False
+        self.body = None
         self._finished = False
         self._headers = HTTPHeaders()
         if self.request.method not in _ALL_METHOD:
@@ -224,7 +226,14 @@ class RequestHandler(object):
             for cookie in self._new_cookie.values():
                 self.add_header('Set-Cookie', cookie.OutputString())
 
+        if self.cache_page and self._status_code in (200, 304):
+            self.body = _buffer
+        else:
+            self.body = None
+
         _body = self.process_buffer(_buffer)
+
+        del _buffer
 
         if self._status_code != 304: 
             self.set_header('Content-Length', len(_body))
@@ -234,6 +243,7 @@ class RequestHandler(object):
 
         if self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
             self.request.connection.send_body(_body)
+
 
         self.log_print()
 
@@ -278,6 +288,8 @@ class RequestHandler(object):
         self.on_finish()
 
     def set_header(self, name, value):
+        if not value:
+            return
         value = utf8(value)
         self._headers[name] = value
 
@@ -472,6 +484,29 @@ class RequestHandler(object):
         _module_instance = _module(self)
         return _module_instance.render(*args, **kwargs)
 
+    def get_cache_manager(self, on = None):
+        s_cache_manager = self.settings.get('cache_manager', None)
+        if not s_cache_manager:
+            raise CacheError('use cache , app\'s settings must has cache_manager')
+        if on == None: # 表示获取默认的cache manager
+            if isinstance(s_cache_manager, (tuple, list)): # 如果有指定多个，则默认是以第一个为cache_manager
+                s_cache_manager = s_cache_manager[0]
+
+            return s_cache_manager
+        else:
+            on = utf8(on)
+            _cache_manager = getattr(self.application, on + '_cache_manager', None) # 这主要是用来减少判断的，对不同的cache_manager只需要做一个判断，就可以找出哪个on，对应的是哪个列表中的元素了
+            if _cache_manager:
+                return _cache_manager
+
+            if not isinstance(s_cache_manager, (tuple, list)):
+                raise CookieError("use 'on' arg, cache_manager setting must be tuple or list")
+            for _cm in s_cache_manager:
+                if _cm.__name__ == on:
+                    setattr(self.application, on + '_cache_manager', _cm)
+                    return _cm
+
+            raise CookieError('Not Found %s cache_manager' % (on, ))
 
     def get_401_user_pwd(self):
         """在401验证时，获取用户输入的用户名和密码，返回tuple"""
