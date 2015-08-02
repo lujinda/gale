@@ -5,33 +5,12 @@
 # Last modified : 2015-06-11 15:52:19
 # Filename      : w.py
 # Description   : 
-from __future__ import unicode_literals
-from gale.web import RequestHandler, Application, auth_401
-from gale.wsgi.web import WSGIApplication
-from gale.server import HTTPServer
 
-application = Application(settings = {
-    'debug' :   True,
-        'template': 'template',
-        'static_path': 'static',
-        'gzip':True,
-        })
+from gale.web import router, app_run
 
-@application.router(url=r'/', method = 'post')
-def post(self):
-    print(self.request.headers)
-    print(self.request.body)
-    print(self.request.all_arguments)
-    print(self.request.files)
+@router('/')
+def send_file(self):
+    self.send_file('/etc/passwd', md5 = True)
 
-@application.router(url=r'/', method='get', kwargs = {'hi': 'def'})
-#@auth_401
-def index(self):
-    print(self.kwargs)
-    self.render('hello.html', counts = "总数")
-
-
-application.run()
-
-# uwsgi --http :8080 --wsgi-file w.py  --master --processes 4 
+app_run()
 

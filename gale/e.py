@@ -37,5 +37,8 @@ class CookieError(Exception):
 class CacheError(Exception):
     pass
 
+class HasFinished(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

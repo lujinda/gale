@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-#coding:utf8
-# Author          : tuxpy
+#coding:utf8 # Author          : tuxpy
 # Email           : q8886888@qq.com
 # Last modified   : 2015-03-26 13:16:41
 # Filename        : gale/web.py
@@ -22,8 +21,8 @@ import traceback
 import time
 from functools import wraps
 import hashlib
-import hmac
-import os
+import hmac 
+import os 
 import json
 import glob
 import gzip
@@ -46,6 +45,7 @@ except ImportError:
 _ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE', 'HEAD')
 re_signed_cookie = re.compile(r'^\|\d+')
 
+BUFFER_SIZE = 4096
 
 class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
@@ -113,6 +113,9 @@ class RequestHandler(object):
         return None
 
     def push(self, _buffer):
+        if self.is_finished:
+            raise HasFinished('can\' push finished after')
+
         if isinstance(_buffer, dict):
             _buffer = json.dumps(_buffer)
             self.set_header('Content-Type', 'application/json')
@@ -163,6 +166,37 @@ class RequestHandler(object):
         
         return t.generate(**kwargs)
 
+    def send_file(self, attr_path, attr_name = None, charset = 'utf-8', md5 = False):
+        if bool(self._push_buffer):
+            raise Exception("Can't redirect after push")
+
+        if not os.path.isfile(attr_path):
+            raise OSError('file: %s  not found' % (attr_path, ))
+
+        attr_name = attr_name or os.path.basename(attr_path)
+        self.set_header('Content-Type', get_mime_type(attr_path))
+        self.set_header('Content-Disposition', 
+                native_str('attachment;filename="%s"') % (native_str(attr_name), ))
+
+        md5_value = self.__send_file(attr_path, md5)
+        if md5_value:
+            self.set_header('Content-MD5', md5_value)
+
+        self.finish()
+
+    def __send_file(self, attr_path, md5):
+        _md5 = md5 and hashlib.md5() or None
+        with open(attr_path, 'rb') as fd:
+            while True:
+                _content = fd.read(BUFFER_SIZE)
+                if not _content:
+                    break;
+                self.push(_content)
+                if _md5:
+                    _md5.update(_content)
+
+        return _md5 and _md5.hexdigest() or None
+
     def create_template_loader(self, template_path):
         return template.Loader(template_path)
 
@@ -209,6 +243,7 @@ class RequestHandler(object):
                     self.application._buffer_stringio)
 
         return _buffer
+
 
     def flush(self, _buffer = None):
         self.before_flush()
