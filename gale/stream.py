@@ -46,6 +46,7 @@ class StreamServer(object):
         while True:
             try:
                 s, addr = self._socket.accept()
+                set_close_exec(s.fileno())
                 s.setsockopt(socket.SOL_SOCKET, 
                     socket.SO_REUSEADDR, 1)
                 s.settimeout(self.timeout) # 设置客户端的超时时间
