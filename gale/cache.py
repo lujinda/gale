@@ -52,7 +52,7 @@ class MemCacheManager(ICacheManager):
         self.clearup()
         
     def flush(self, key):
-        if self._cache_dict.has_key(key):
+        if key in self._cache_dict:
             del self._cache_dict[key]
             del self._expire_dict[key]
 
@@ -66,14 +66,14 @@ class MemCacheManager(ICacheManager):
 
     def clearup(self):
         now = int(time.time())
-        for key in self._expire_dict.iterkeys():
+        for key in self._expire_dict:
             if now > self._expire_dict[key]:
                 self.flush(key)
             else:
                 break # 因为是根据插入的次序排的，有一个不过期，就说明后面的都不会过期了。
 
         while len(self._cache_dict) > self.max_size:
-            for key in self._cache_dict.iterkeys():
+            for key in self._cache_dict:
                 self.flush(key)
                 break
 
@@ -125,9 +125,9 @@ class RedisCacheManager(ICacheManager):
         return 'redis'
 
 def _generate_key(key, args, kwargs):
-    m = hashlib.md5(key)
-    [m.update(str(arg)) for arg in args]
-    [m.update("%s=%s" % tuple(item)) for item in kwargs.items()]
+    m = hashlib.md5(utf8(key))
+    [m.update(utf8(str(arg))) for arg in args]
+    [m.update(utf8("%s=%s" % tuple(item))) for item in kwargs.items()]
 
     return m.hexdigest()
 

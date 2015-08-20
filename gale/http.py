@@ -10,14 +10,16 @@ from gale.e import HeaderFormatError, NotSupportHttpVersion
 from gale.utils import urlsplit, urldecode
 from gale.log import gen_log
 from gale import escape
+from gale.escape import native_str
 from time import time
 import re
 
+
 class HTTPRequest():
     def __init__(self, method, uri, version, headers, body, connection, real_ip = True):
-        self.method = method
-        self.uri = uri
-        self.version = version
+        self.method = native_str(method)
+        self.uri = native_str(uri)
+        self.version = native_str(version)
         self.version_num = self.__version_num() 
         self.headers = headers
         self.body = body
@@ -56,8 +58,7 @@ class HTTPRequest():
         return _cookies
 
     def __version_num(self):
-        print(self.version)
-        _version_num = self.version.split(b'/', 1)[1]
+        _version_num = self.version.split('/', 1)[1]
         if not re.match(r'^1\.[01]$', _version_num):
             raise NotSupportHttpVersion
 
@@ -131,14 +132,15 @@ class HTTPHeaders(dict):
         """把http头信息组织到一个字典中去"""
         _headers = {}
         _last_key = None
+        headers = native_str(headers)
         assert not isinstance(headers, dict)
-        for header_line in headers.split(b'\n'):
-            header_line = header_line.rstrip(b'\r')
-            if header_line.startswith(b'\x20') or header_line.startswith(b'\t') :  # 因为http首部是允许换行的, 所以如果这一行是以空格或制表符开头的，需要将信息加到之前那行
+        for header_line in headers.split('\n'):
+            header_line = header_line.rstrip('\r')
+            if header_line.startswith('\x20') or header_line.startswith('\t') :  # 因为http首部是允许换行的, 所以如果这一行是以空格或制表符开头的，需要将信息加到之前那行
                 _headers[_last_key] += ' ' + header_line.lstrip()
                 continue
             else:
-                _header_name, _header_value = header_line.split(b':', 1)
+                _header_name, _header_value = header_line.split(':', 1)
             _headers[_header_name] = _header_value.strip()
             _last_key = _header_name
 
@@ -151,8 +153,7 @@ class HTTPHeaders(dict):
             for _value in _value_list:
                 _header_line = "{name}: {value}".format(
                     name = _name, value = _value)
-                _headers_string += (CRLF + _header_line)
-
+                _headers_string += (CRLF + escape.utf8(_header_line))
 
         return _headers_string + CRLF * 2
 

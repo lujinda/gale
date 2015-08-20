@@ -30,12 +30,12 @@ import re
 import base64
 
 try:
-    from cStringIO import StringIO
+    from cStringIO import StringIO as s_io
 except ImportError:
     try:
-        from StringIO import StringIO
+        from StringIO import StringIO as s_io
     except ImportError:  #  py3
-        from io import StringIO
+        from io import BytesIO as s_io
 
 try:
     import urlparse # py2
@@ -325,11 +325,9 @@ class RequestHandler(object):
     def set_header(self, name, value):
         if not value:
             return
-        value = utf8(value)
         self._headers[name] = value
 
     def add_header(self, name, value):
-        value = utf8(value)
         self._headers.add(name, value)
 
     def set_headers(self, headers):
@@ -560,7 +558,7 @@ class ErrorHandler(RequestHandler):
 class Application(object):
     _template_cache = {}
     _static_md5_cache = ShareDict()
-    _buffer_stringio = StringIO()
+    _buffer_stringio = s_io()
 
     def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {},  ui_settings = {}):
         """

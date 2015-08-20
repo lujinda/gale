@@ -6,13 +6,10 @@
 # Filename      : test.py
 # Description   : 
 from gale.web import app_run, router, RequestHandler
-from gale.cache import MemCacheManager, cache, RedisCacheManager, page
-from redis import Redis
-
-db = Redis()
+from gale.cache import MemCacheManager, cache,  page
 
 class CacheHandler(RequestHandler):
-    @cache(on='redis')
+    @cache()
     def add(self, a, b):
         print('a + b')
         return a + b
@@ -25,9 +22,8 @@ def test(self):
 
 @router(url = '/test', method = 'POST')
 def login_post(self):
-    print(self.request.get_header('referer'))
+    print(self.request.all_arguments)
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(__file__, settings = {'gzip': True, 'cookie_secret': '123', 'cache_manager': [RedisCacheManager(expire = 10, db = db), 
-    MemCacheManager(expire = 10)]}, processes = 1)
+app_run(__file__, settings = {'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 10)}, processes = 1)
 
