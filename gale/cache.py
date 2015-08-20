@@ -75,7 +75,7 @@ class MemCacheManager(ICacheManager):
         while len(self._cache_dict) > self.max_size:
             for key in self._cache_dict.iterkeys():
                 self.flush(key)
-
+                break
 
     @property
     def __name__(self):
@@ -124,7 +124,7 @@ class RedisCacheManager(ICacheManager):
     def __name__(self):
         return 'redis'
 
-def _generate_key(key, *args, **kwargs):
+def _generate_key(key, args, kwargs):
     m = hashlib.md5(key)
     [m.update(str(arg)) for arg in args]
     [m.update("%s=%s" % tuple(item)) for item in kwargs.items()]

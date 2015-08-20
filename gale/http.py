@@ -56,7 +56,8 @@ class HTTPRequest():
         return _cookies
 
     def __version_num(self):
-        _version_num = self.version.split('/', 1)[1]
+        print(self.version)
+        _version_num = self.version.split(b'/', 1)[1]
         if not re.match(r'^1\.[01]$', _version_num):
             raise NotSupportHttpVersion
 
