@@ -6,11 +6,33 @@
 # Filename      : w.py
 # Description   : 
 
-from gale.web import router, app_run
+from gale.web import router, app_run, RequestHandler, async
+from gale.coroutine import coroutine
+import time
+import urllib2
 
-@router('/')
+class BaseHandler(RequestHandler):
+    def on_result(self, result, e):
+        self.push(result)
+        self.finish()
+
+    @coroutine
+    def get_html(self, url):
+        content = ''
+        time.sleep(10)
+        raise Exception()
+        for i in range(5):
+            content = urllib2.urlopen(url).read()
+        return content
+
+@router('/', base_handler = BaseHandler)
+@async
 def send_file(self):
-    self.send_file('/etc/passwd', md5 = True)
+    self.get_html('http://www.zjycloud.com')
 
-app_run()
+@router('/test')
+def send_file(self):
+    self.push('test')
+
+app_run(processes = 1)
 

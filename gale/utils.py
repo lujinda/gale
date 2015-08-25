@@ -1,4 +1,3 @@
-
 #coding:utf8
 # Author          : tuxpy
 # Email           : q8886888@qq.com
@@ -23,7 +22,8 @@ from gale.config import CRLF
 import mimetypes
 import uuid
 import fcntl
-
+import gevent
+from gevent import Greenlet
 
 def set_close_exec(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFD)

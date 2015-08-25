@@ -624,7 +624,7 @@ class Application(object):
             if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
                 traceback.print_exc()
         finally:
-            if (not is_wsgi) and (getattr(handler, 'is_long_poll', False) == False):
+            if (not is_wsgi) and (getattr(handler, '_is_auth_finish', False) == False):
                 handler.finish()
 
         return handler
@@ -752,13 +752,14 @@ def auth_401(method):
 
     return wrap
 
-def long_poll(method):
+def async(method):
     @wraps(method)
     def wrap(self, *args, **kwargs):
-        self.is_long_poll = True
+        self._is_auth_finish = True
         return method(self, *args, **kwargs)
 
     return wrap
+
 
 class UIModule(object):
     def __init__(self, handler):
