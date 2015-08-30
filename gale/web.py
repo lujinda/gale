@@ -388,10 +388,13 @@ class RequestHandler(object):
         if value == None:
             return default
 
-        if not re_signed_cookie.match(value):
-            raise CookieError("signed_cookie format error")
+        if (not re_signed_cookie.match(value)) and self.cookie_support_tornado == False:
+            return None
 
-        return decode_signed_cookie(secret, cookie_name, value)
+        if self.cookie_support_tornado:
+            return decode_signed_cookie_tornado(secret, cookie_name, value)
+        else:
+            return decode_signed_cookie(secret, cookie_name, value)
 
     def set_signed_cookie(self, name, value, *args, **kwargs):
         secret = self.settings.get('cookie_secret', None)
@@ -400,6 +403,10 @@ class RequestHandler(object):
 
         signed_value = encode_signed_cookie(secret, name, value)
         self.set_cookie(name, signed_value, *args, **kwargs)
+
+    @property
+    def cookie_support_tornado(self):
+        return bool(self.settings.get('cookie_support_tornado', False))
 
     def set_status(self, status_code = 200, status_message = None):
         self.status_message = status_message # 可以自定义状态代码描述
@@ -937,7 +944,7 @@ class _UINameSpace(object):
         return _module_instance.render
 
 def create_cookie_signature(secret):
-    hash_obj = hmac.new(utf8(secret),digestmod =  hashlib.sha1)
+    hash_obj = hmac.new(utf8(secret),digestmod =  hashlib.sha256)
     return utf8(hash_obj.hexdigest()).upper()
 
 def encode_signed_cookie(secret, name, value):
@@ -973,6 +980,28 @@ def decode_signed_cookie(secret, name, value):
         return None
 
     return base64.b64decode(field_value)
+
+def decode_signed_cookie_tornado(secret, name, value):
+    signed_cookie = value
+    rest = signed_cookie[2:]
+    def split_signed_cookie(rest):
+        offset = rest.find(b':')
+        length = int(rest[0: offset])
+        field_value = rest[offset + 1: length + offset + 1]
+
+        rest = rest[length + offset + 2:]
+
+        return field_value, rest
+
+    key_version, rest = split_signed_cookie(rest)
+    timestamp, rest = split_signed_cookie(rest)
+    field_name, rest = split_signed_cookie(rest)
+    field_value, rest = split_signed_cookie(rest)
+
+    if int(timestamp) < int(time.time()) - 30 * 86400:
+        return None
+
+    return base64.decodestring(field_value)
 
 from gale.server import HTTPServer
 HANDLER_LIST = []

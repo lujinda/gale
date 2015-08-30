@@ -45,6 +45,11 @@ class Session(SessionData):
 
         dict.__init__(self)
 
+    def __getattr__(self, name):
+        if name not in self:
+            raise AttributeError
+
+        return self[name]
 
     def save(self):
         self.session_manager.set(self.request_handler, self)
@@ -57,8 +62,8 @@ class ISessionManager(object):
         raise ImportError
 
     def get(self, request_handler = None):
-        session_id = (request_handler and request_handler.get_cookie('SESSION_ID')) or self._generate_id()
-        hmac_key = (request_handler and request_handler.get_cookie('VERIFICATION')) or self._generate_hmac(session_id)
+        session_id = (request_handler and request_handler.get_signed_cookie(self.session_id_key)) or self._generate_id()
+        hmac_key = (request_handler and request_handler.get_signed_cookie(self.session_verify_key)) or self._generate_hmac(session_id)
 
         check_hmac = self._generate_hmac(session_id)
         if hmac_key != check_hmac:
@@ -74,13 +79,13 @@ class ISessionManager(object):
         raise ImportError
 
     def set(self, request_handler, session):
-        request_handler.set_cookie('SESSION_ID', session.session_id)
-        request_handler.set_cookie('VERIFICATION', session.hmac_key)
+        request_handler.set_signed_cookie(self.session_id_key, session.session_id)
+        request_handler.set_signed_cookie(self.session_verify_key, session.hmac_key)
         self.save_session(session)
 
     def flush(self, request_handler, session):
-        request_handler.clear_cookie('SESSION_ID')
-        request_handler.clear_cookie('VERIFICATION')
+        request_handler.clear_cookie(self.session_id_key)
+        request_handler.clear_cookie(self.session_verify_key)
         self.remove_session(session)
 
     def save_session(self, session):
@@ -100,9 +105,11 @@ class FileSessionManager(ISessionManager):
     """这是使用文件来实现的seession机制"""
     lock = threading.RLock()
 
-    def __init__(self, session_secret, session_timeout, session_path = None):
+    def __init__(self, session_secret, session_timeout, session_path = None, session_id_key = 'SESSION_ID', session_verify_key = 'VERIFICATION'):
         self.session_secret = session_secret
         self.session_timeout = session_timeout
+        self.session_id_key = session_id_key
+        self.session_verify_key = session_verify_key
 
         import tempfile
         session_path = session_path or tempfile.gettempdir()
@@ -165,10 +172,13 @@ class FileSessionManager(ISessionManager):
             os.remove(session_file)
 
 class RedisSessionManager(ISessionManager):
-    def __init__(self, session_secret, session_timeout, session_db):
+    def __init__(self, session_secret, session_timeout, session_db, 
+            session_id_key = 'SESSION_ID', session_verify_key = 'VERIFICATION'):
         self.session_secret = session_secret
         self.session_timeout = session_timeout
         self.session_db = session_db
+        self.session_id_key = session_id_key
+        self.session_verify_key = session_verify_key
 
     def _fetch(self, session_id):
         raw_data = self.session_db.get(session_id)
