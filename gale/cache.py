@@ -64,6 +64,10 @@ class MemCacheManager(ICacheManager):
         self.clearup()
         return self._cache_dict.get(key, None)
 
+    def ttl(self, key):
+        ttl = self._expire_dict.get(key) or 0
+        return ttl
+
     def clearup(self):
         now = int(time.time())
         for key in self._expire_dict:
@@ -109,6 +113,11 @@ class RedisCacheManager(ICacheManager):
         value = pickle.loads(value)
 
         return value
+
+    def ttl(self, key):
+        key = self.prefix + utf8(key)
+
+        return self.db.ttl(key) or 0
 
     def flush_all(self):
         pipe = self.db.pipeline()

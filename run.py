@@ -17,7 +17,6 @@ class CacheHandler(RequestHandler):
 @router(url = '/test', method='GET', base_handler = CacheHandler)
 @page(expire = 10)
 def test(self):
-    print(self.add(1, 2))
     self.render('t.html', l = [1, 2, 3])
 
 @router(url = '/test', method = 'POST')
