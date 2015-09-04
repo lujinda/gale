@@ -88,7 +88,7 @@ class HTTPRequest():
         return time() - self._start_time
 
     def get_header(self, name, default = None):
-        """获取http header，不区分大小写, 并且Referrer和Referer"""
+        """获取http header，不区分大小写, 并且Referrer和Referer都是一样的"""
         name = name.title()
         if name == 'Referrer':
             name = 'Referer'

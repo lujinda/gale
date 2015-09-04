@@ -5,5 +5,5 @@
 # Last modified   : 2015-03-25 13:19:19
 # Filename        : __init__.py
 # Description     : 
-version = '1.0'
+version = '1.1'
 

@@ -5,7 +5,7 @@
 # Last modified : 2015-06-09 15:20:13
 # Filename      : test.py
 # Description   : 
-from gale.web import app_run, router, RequestHandler
+from gale.web import app_run, router, RequestHandler, limit_referrer
 from gale.cache import MemCacheManager, cache,  page
 
 class CacheHandler(RequestHandler):
@@ -15,6 +15,7 @@ class CacheHandler(RequestHandler):
         return a + b
 
 @router(url = '/test', method='GET', base_handler = CacheHandler)
+@limit_referrer
 @page(expire = 10)
 def test(self):
     self.render('t.html', l = [1, 2, 3])

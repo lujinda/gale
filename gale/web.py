@@ -12,7 +12,7 @@ except ImportError:
 
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
-from gale.utils import urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
@@ -203,7 +203,6 @@ class RequestHandler(object):
     def get_template_path(self):
         return self.settings.get('template_path', 'template')
 
-
     def get_name_space(self):
         """一些可以在模块中用的变量或方法"""
         name_space = {
@@ -301,6 +300,9 @@ class RequestHandler(object):
     @property
     def client_ip(self):
         return self.request.client_ip
+
+    def on_referrer_error(self):
+        raise HTTPError(403)
 
     def on_finish(self):
         """会在执行完finish时执行"""
@@ -730,6 +732,20 @@ class Application(object):
         http_server.run()
 
 
+def limit_referrer(method):
+    """防外链"""
+    @wraps(method)
+    def wrap(self, *args, **kwargs):
+        referrer = self.request.get_header('referrer')
+        referrer_host = referrer and urlsplit(referrer).netloc.split(':')[0]
+        if (not referrer) or referrer_host != self.request.host:
+            self.on_referrer_error()
+            return
+
+        return method(self, *args, **kwargs)
+    
+    return wrap
+
 def authenticated(method):
     @wraps(method)
     def wrap(self, *args, **kwargs):
@@ -811,6 +827,9 @@ class StaticFileHandler(RequestHandler):
 
     def should_return_304(self, content_version):
         """判断是否需要返回304,判断下request中的内容hash值与计算出来的是否一样就行了"""
+        cache_control = self.request.get_header('Cache-Control')
+        if cache_control == 'no-cache':
+            return False
         return self.get_request_version() == content_version
 
     def get_request_version(self):

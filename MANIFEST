@@ -4,6 +4,7 @@ gale/__init__.py
 gale/autoreload.py
 gale/cache.py
 gale/config.py
+gale/coroutine.py
 gale/e.py
 gale/escape.py
 gale/http.py
