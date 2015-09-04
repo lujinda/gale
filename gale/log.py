@@ -7,9 +7,29 @@
 # Description   : 
 from __future__ import unicode_literals
 import logging
+import re
 
 access_log = logging.getLogger('access_log')
 gen_log = logging.getLogger('gen_log')
+
+class ColorLogFormatter(logging.Formatter):
+    COLOR_CODE = {logging.INFO: '32',
+            logging.WARNING: '33',
+            logging.ERROR: '31'}
+
+    def __init__(self, fmt = None, datefmt = None):
+        super(ColorLogFormatter, self).__init__(fmt, datefmt)
+        self._raw_fmt = fmt
+        self._re_fmt = re.compile(r'(%\(\w+?\)\w)')
+
+    def format(self, record):
+        def generate_color_str(m):
+            color_str = "\x1b[0;{color};1m{arg}\x1b[0m".format(color = self.COLOR_CODE[record.levelno], arg = m.group(1))
+            return color_str
+
+        self._fmt = self._re_fmt.sub(generate_color_str, 
+                self._raw_fmt, count = 1)
+        return super(ColorLogFormatter, self).format(record)
 
 def config_logging(log_settings):
     """配置logging"""
@@ -22,7 +42,8 @@ def config_logging(log_settings):
     for _handler in handler_list:
         _handler.setLevel(getattr(logging, log_settings.get('level', 'DEBUG'),
             logging.DEBUG))
-        formatter = logging.Formatter('%(asctime)s %(filename)s [%(process)d] %(levelname)s %(message)s',
+        formatter_class = isinstance(_handler, logging.StreamHandler) and ColorLogFormatter or logging.Formatter
+        formatter = formatter_class('%(asctime)s %(filename)s [%(process)d] %(levelname)s %(message)s',
                 datefmt = log_settings.get('datefmt', '%Y-%m-%d %H:%M:%s'))
 
         _handler.setFormatter(formatter)
