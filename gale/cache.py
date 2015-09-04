@@ -173,7 +173,7 @@ def page(expire = None, on = None):
                 hdl.set_header('Content-Type', hds['Content-Type'])
                 hdl.set_header('Set-Cookie', hds.get('Set-Cookie'))
                 hdl.set_header('Server', 'Gale Cache')
-                hdl.set_status(cache['status'])
+                hdl.set_status(200)
                 hdl.push(cache['body'])
                 return 
 

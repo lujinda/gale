@@ -58,6 +58,7 @@ class RequestHandler(object):
         self.body = None
         self._finished = False
         self._headers = HTTPHeaders()
+        self._buffer_md5 = hashlib.md5()
         if self.request.method not in _ALL_METHOD:
             raise NotSupportMethod
 
@@ -121,6 +122,8 @@ class RequestHandler(object):
             self.set_header('Content-Type', 'application/json')
 
         _buffer = utf8(_buffer)
+        if self.settings.get('dynamic_304', True):
+            self._buffer_md5.update(_buffer)
         self._push_buffer.append(_buffer)
 
     def is_supported_http1_1(self):
@@ -243,6 +246,16 @@ class RequestHandler(object):
 
         return _buffer
 
+    def should_return_304(self, buffer_md5):
+        dynamic_304 = self.settings.get('dynamic_304', True)
+        if dynamic_304 == False or self.request.get_header('Cache-Control') == 'no-cache':
+            return False
+
+        request_version = self.request.get_header('If-None-Match', '')
+        if not request_version:
+            return False
+
+        return request_version == buffer_md5
 
     def flush(self, _buffer = None):
         self.before_flush()
@@ -250,6 +263,16 @@ class RequestHandler(object):
             return
 
         _buffer = _buffer or b''.join(self._push_buffer)
+
+        _body = self.process_buffer(_buffer)
+
+        _buffer_md5 = self._buffer_md5.hexdigest()
+        self.set_header('Etag', _buffer_md5)
+
+        is_return_304 = self._status_code == 304 or self.should_return_304(_buffer_md5)
+        if is_return_304:
+            self.set_status(304)
+
         self._push_buffer = []
         if self.is_finished:
             return
@@ -265,7 +288,6 @@ class RequestHandler(object):
         else:
             self.body = None
 
-        _body = self.process_buffer(_buffer)
 
         del _buffer
 
@@ -275,11 +297,9 @@ class RequestHandler(object):
         _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
         self.request.connection.send_headers(_headers)
 
-        if self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
+        if is_return_304 != True and self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
             self.request.connection.send_body(_body)
 
-
-        self.log_print()
 
     def log_print(self):
         _log = "{method} {path} {response_first_line} {client_ip} {request_time}".format(
@@ -322,6 +342,7 @@ class RequestHandler(object):
             self.request.connection.close()
 
         self._finished = True # 不管是不是keep alive，都需要把它设置成True，因为连接跟这个没关系，每一次有新的请求时，都会生成一个新的RequestHandler
+        self.log_print()
         self.on_finish()
 
     def set_header(self, name, value):
@@ -860,12 +881,6 @@ class StaticFileHandler(RequestHandler):
         else:
             self.set_header('Expires', format_timestamp(time.time() + expire_sec))
 
-    def set_etag_header(self, etag = None):
-        if not self.is_supported_http1_1(): # 如果不是http 1.1则是不支持的（比如 1.0)
-            return 
-
-        etag = etag or self.get_content_version(self.absolute_path)
-        self.set_header('Etag', etag)
 
     def get_content_version(self, absolute_path):
         _cache_version = self.get_cache_version(absolute_path)
@@ -911,6 +926,13 @@ class StaticFileHandler(RequestHandler):
 
     def file_stat(self):
         return os.stat(self.absolute_path)
+
+    def set_etag_header(self, etag = None):
+        if not self.is_supported_http1_1(): # 如果不是http 1.1则是不支持的（比如 1.0)
+            return 
+
+        etag = etag or self.get_content_version(self.absolute_path)
+        self.set_header('Etag', etag)
 
 
 class GzipProcessor(object):
