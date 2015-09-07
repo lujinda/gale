@@ -12,10 +12,7 @@ from gale.escape import utf8
 import uuid
 import threading
 import hmac
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import json
 
 import hashlib
 import os
@@ -149,7 +146,7 @@ class FileSessionManager(ISessionManager):
 
         try:
             with open(session_file, 'rb') as session_fd:
-                session_data = pickle.loads(session_fd.read())
+                session_data = json.loads(session_fd.read())
         except IOError:
             return {}
 
@@ -187,7 +184,7 @@ class RedisSessionManager(ISessionManager):
 
         self.session_db.expire(session_id, self.session_timeout)
 
-        session_data = pickle.loads(raw_data)
+        session_data = json.loads(raw_data)
         return isinstance(session_data, dict) and session_data or {}
 
     def save_session(self, session):
