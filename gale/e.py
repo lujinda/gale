@@ -40,5 +40,8 @@ class CacheError(Exception):
 class HasFinished(Exception):
     pass
 
+class WebSocketError(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

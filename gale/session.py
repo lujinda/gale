@@ -155,7 +155,7 @@ class FileSessionManager(ISessionManager):
     def save_session(self, session):
         session_file = os.path.join(self.session_path, 
                 '%s%s' % (self.SESSION_PREFIX, session.session_id))
-        session_data = pickle.dumps(dict(session.items()), protocol=1) # py2 支持0, 1, 2 (默认是0),py3 支持0, 1 , 2, 3, 4 (默认是3)， 为了兼容，所以指定为1
+        session_data = json.dumps(dict(session.items())) 
 
         with self.lock:
             with open(session_file, 'wb') as session_fd:
@@ -188,7 +188,7 @@ class RedisSessionManager(ISessionManager):
         return isinstance(session_data, dict) and session_data or {}
 
     def save_session(self, session):
-        session_data = pickle.dumps(dict(session.items()), protocol = 1)
+        session_data = json.dumps(dict(session.items()))
         self.session_db.setex(session.session_id, session_data, self.session_timeout)
 
     def remove_session(self, session):

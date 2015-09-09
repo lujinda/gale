@@ -247,6 +247,12 @@ class RequestHandler(object):
         return _buffer
 
     def should_return_304(self, buffer_md5):
+        if self.get_status() not in (200, 304):
+            return False
+
+        if self.request.method != 'GET':
+            return False
+
         dynamic_304 = self.settings.get('dynamic_304', True)
         if dynamic_304 == False or self.request.get_header('Cache-Control') == 'no-cache':
             return False
@@ -332,11 +338,11 @@ class RequestHandler(object):
         """在刷新前做点事"""
         pass
 
-    def finish(self):
+    def finish(self, chunk = None):
         if self._finished:
             return
         if not self.is_finished:
-            self.flush()
+            self.flush(chunk)
 
         if not self.request.is_keep_alive():
             self.request.connection.close()

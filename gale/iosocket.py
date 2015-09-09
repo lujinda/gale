@@ -16,14 +16,27 @@ class IOSocket():
         self.closed = False
         self._buff = b''
 
+    def write(self, chunk):
+        self._socket.sendall(chunk)
+
+    def clone(self):
+        return IOSocket(self._socket, self.max_buff)
+
     def gevent_exception(self, *args, **kwargs):
         self.close()
 
     def close(self):
         if self.closed:
             return
+        self.on_close()
         self._socket.close()
         self.closed = True
+
+    def set_timeout(self, secs = 60):
+        self._socket.settimeout(secs)
+
+    def on_close(self):
+        pass
 
     def send_string(self, string):
         try:
@@ -39,4 +52,10 @@ class IOSocket():
                 return False
         except:
             return True
+
+    def recv(self, buffer_size):
+        try:
+            return self._socket.recv(buffer_size)
+        except Exception:
+            return None
 
