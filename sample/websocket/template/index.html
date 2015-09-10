@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        <script src="{{static_url('angular.min.js')}}"></script>
+        <script src="{{static_url('conn.js')}}"></script>
+        <title>gale websocket demo</title>
+        <style>
+            #chat_wrap{
+                width: 800px;
+                margin: 10px;
+            }
+            #message_box{
+                height: 500px;
+                border: 1px solid #ccc;
+                overflow: auto;
+                margin-bottom: 10px;
+            }
+            #chat_wrap li{
+                list-style-type: none;
+                margin: 10px 5px;
+            }
+        </style>
+    </head>
+    <body ng-app="demo" ng-controller="demo_controller">
+        <div ng-show="!is_connected">
+            <label>
+                请输入您的昵称: 
+                <input type="text" ng-model="nickname">
+            </label>
+            <button ng-disabled="!nickname" ng-click="login()">登录</button>
+        </div>
+        <div ng-show="is_connected" id="chat_wrap">
+            <div id="message_box">
+                <li ng-repeat="_mess in message_list">
+                //_mess.data//
+                </li>
+            </div>
+            <form ng-submit="send_message()">
+                <input ng-model="message" id="input_box" type="text"><button type="submit">发送</button>
+            </form>
+        </div>
+    </body>
+</html>

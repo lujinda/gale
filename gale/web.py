@@ -752,11 +752,11 @@ class Application(object):
         return type(native_str(_class_name),
                 (base_handler or RequestHandler, ), {})
 
-    def run(self, host = '', port = 8080, **server_settings):
+    def run(self, host = '', port = 8080, processes = 0, **server_settings):
         http_server = HTTPServer(self, 
                 host = host, port = port,
                 **server_settings)
-        http_server.run()
+        http_server.run(processes)
 
 
 def limit_referrer(method):

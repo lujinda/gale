@@ -12,9 +12,6 @@ from gale.server import HTTPServer
 
 clients = set()
 
-class IndexHandler(RequestHandler):
-    def GET(self):
-        self.render('websocket.html')
 
 class ConnHandler(WebSocketHandler):
     def on_open(self):
@@ -27,8 +24,12 @@ class ConnHandler(WebSocketHandler):
 
 app = Application(handlers = [
     (r'/conn', ConnHandler),
-    (r'/', IndexHandler),
     ], settings = {'debug': True})
+
+@app.router(url = '/')
+def index(self):
+    self.render('websocket.html')
+
 http_server = HTTPServer(app)
 http_server.listen(5005)
 http_server.run(processes = 1)
