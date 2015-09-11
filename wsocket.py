@@ -15,12 +15,11 @@ clients = set()
 
 class ConnHandler(WebSocketHandler):
     def on_open(self):
-        for client in clients:
-            client.send_message('有朋友连接上来了')
-        clients.add(self)
+        print('有人连接了')
 
-    def on_close(self):
-        clients.remove(self)
+    def on_close(self, code, reason):
+        print(code, reason)
+        print('有人走了')
 
 app = Application(handlers = [
     (r'/conn', ConnHandler),

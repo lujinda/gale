@@ -26,8 +26,9 @@ class WebSocketConnection(object):
         self.websocket_key = websocket_key
         self.handler = handler
         self.stream = handler.request.connection
-        self.stream.set_timeout(9999)
         self.closed = False
+        self.close_status = None
+        self.close_reason = None
 
     def accept(self):
         response = [
@@ -39,28 +40,28 @@ class WebSocketConnection(object):
         response = utf8('\r\n'.join(response) + '\r\n' * 2)
         self.stream.write(response)
         while self.closed == False:
-            try:
-                frame_data = self.recv_frame_data()
-                if frame_data.opcode == 0x1: # 接受text
-                    self.handler.on_message(frame_data)
-                elif frame_data.opcode == 0x8: # 关闭
-                    self.close()
-            except WebSocketError as e:
+            frame_data = self.recv_frame_data()
+            if frame_data.opcode == 0x1: # 接受text
+                self.handler.on_message(frame_data)
+            elif frame_data.opcode == 0x8: # 关闭
+                _data = frame_data.data
+                if len(_data) >= 2:
+                    self.close_status = struct.unpack(b'!H', _data[:2])[0]
+                if len(_data) > 2:
+                    self.close_reason = _data[2:]
                 self.close()
 
     def close(self):
         if self.closed:
             return
         self.stream.close()
-        self.handler.on_close()
+        self.handler.on_close(self.close_status, self.close_reason)
         self.closed = True
 
     def recv_frame_data(self):
         frame = ObjectDict()
         self._on_frame_header(self.recv_bytes(2), frame)
 
-        if frame.opcode in (0x8, ): # 如果收到的关闭信息，则直接关闭
-            return frame;
 
         if frame.payload_len < 126:
             pass
@@ -94,6 +95,9 @@ class WebSocketConnection(object):
         self.stream.send_string(bin_frame)
 
     def recv_bytes(self, size):
+        if size == 0:
+            return b''
+
         chunk = self.stream.recv(size)
         if (not chunk):
             raise WebSocketError('connection closed')
@@ -146,12 +150,15 @@ class WebSocketHandler(RequestHandler):
         self._websocket_conn = WebSocketConnection(self.__websocket_version,
                 self.__websocket_key, self)
         self.on_open()
-        self._websocket_conn.accept()
+        try:
+            self._websocket_conn.accept()
+        except WebSocketError:
+            self._websocket_conn.close()
 
     def on_open(self):
         pass
 
-    def on_close(self):
+    def on_close(self, status, reason):
         pass
 
     def on_message(self, frame):
