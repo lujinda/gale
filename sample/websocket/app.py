@@ -10,6 +10,9 @@ from gale.websocket import WebSocketHandler
 
 class ConnHandler(WebSocketHandler):
     clients = {}
+    def origin_is_accept(self):
+        return True
+
     def on_open(self):
         pass
 
@@ -21,7 +24,7 @@ class ConnHandler(WebSocketHandler):
         else:
             self.broadcast(ConnHandler.clients[self], message)
 
-    def on_close(self):
+    def on_close(self, code, reason):
         nickname = ConnHandler.clients.pop(self)
         self.broadcast('system', '{nickname} 离开了聊天室'.format(nickname = nickname))
 
