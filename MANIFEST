@@ -18,6 +18,7 @@ gale/stream.py
 gale/template.py
 gale/utils.py
 gale/web.py
+gale/websocket.py
 gale/wsgi/__init__.py
 gale/wsgi/http.py
 gale/wsgi/stream.py

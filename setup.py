@@ -11,6 +11,7 @@ setup(
         name = 'gale_web',
         version = version,
         author = 'tuxpy',
+        url = 'https://github.com/lujinda/gale',
         packages = [
             'gale',
             'gale.wsgi',
