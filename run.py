@@ -27,5 +27,5 @@ def test(self):
 def login_post(self):
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(__file__, settings = {'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1)
+app_run(__file__, settings = {'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 0)
 

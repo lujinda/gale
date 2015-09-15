@@ -43,5 +43,8 @@ class HasFinished(Exception):
 class WebSocketError(Exception):
     pass
 
+class IPCError(Exception):
+    pass
+
 NotSupportMethod = HTTPError(405)
 

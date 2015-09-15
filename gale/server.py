@@ -12,6 +12,8 @@ try:
 except ImportError as e:
     from gale.wsgi.stream import StreamServer
 
+from gale.ipc import IPCServer
+
 from multiprocessing import  cpu_count, Process
 
 class HTTPServer(object):
@@ -33,6 +35,7 @@ class HTTPServer(object):
         self.host = host
 
     def run(self, processes = 0):
+        processes = processes or cpu_count() 
         if self.autoreload and processes != 1:  # 自动重载不支持多进程模式，自动关闭自动重载
             self.autoreload = False
             print("autoreload not suport multi procesess")
@@ -43,7 +46,8 @@ class HTTPServer(object):
             _server.serve_forever()
         else:
             self.multi_run(server = _server, processes = processes)
-
+            ipc_server = IPCServer(processes)
+            ipc_server.serve_forever()
 
     def __print_run_msg(self, processes = None):
         mess = "listen: http://%s:%s" % (self.host or '0.0.0.0', self.port)
@@ -65,8 +69,6 @@ class HTTPServer(object):
 
         self.__print_run_msg(processes)
 
-        for p in run_pool: # 等待
-            p.join()
 
     def __made_server(self):
         return StreamServer((self.host, self.port), self._callback, 
