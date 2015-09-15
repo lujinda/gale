@@ -46,8 +46,9 @@ class HTTPServer(object):
             _server.serve_forever()
         else:
             self.multi_run(server = _server, processes = processes)
-            ipc_server = IPCServer(processes)
-            ipc_server.serve_forever()
+
+        ipc_server = IPCServer()
+        ipc_server.serve_forever()
 
     def __print_run_msg(self, processes = None):
         mess = "listen: http://%s:%s" % (self.host or '0.0.0.0', self.port)

@@ -19,7 +19,6 @@ def index(self):
     raise HTTPError(500)
 
 @router(url = '/test', method='GET', base_handler = CacheHandler)
-@page(expire = 1000)
 def test(self):
     self.render('t.html', l = [1, 2, 3])
 
@@ -27,5 +26,5 @@ def test(self):
 def login_post(self):
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(__file__, settings = {'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 0)
+app_run(__file__, settings = {'debug': False, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 0)
 

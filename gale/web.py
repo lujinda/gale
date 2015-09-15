@@ -17,6 +17,7 @@ from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
 from gale.session import FileSessionManager
+from gale.ipc import IPCDict
 import traceback
 import time
 from functools import wraps
@@ -592,9 +593,8 @@ class ErrorHandler(RequestHandler):
         raise HTTPError(status_code)
 
 class Application(object):
-    _template_cache = {}
-    _static_md5_cache = ShareDict()
     _buffer_stringio = s_io()
+    _template_cache = {}
 
     def __init__(self, handlers = [], vhost_handlers = [], settings = {}, log_settings = {},  ui_settings = {}):
         """
@@ -758,6 +758,14 @@ class Application(object):
                 **server_settings)
         http_server.run(processes)
 
+    @property
+    def _static_md5_cache(self):
+        if hasattr(self, '_static_md5_cache_instance'):
+            return self._static_md5_cache_instance
+        _instance = IPCDict('static_md5_cache')
+
+        self._static_md5_cache_instance = _instance
+        return _instance
 
 def limit_referrer(method):
     """防外链"""
@@ -905,6 +913,7 @@ class StaticFileHandler(RequestHandler):
     def get_cache_version(self, absolute_path):
         _cache = self._md5_cache.get(absolute_path)
         if not _cache:
+            print('no cache')
             return None
 
         if self.file_stat().st_mtime != _cache['mtime']: # 如果已经修改过了，则表示已经更新了，则需要重新计算hash值
