@@ -29,10 +29,6 @@ class FRAME():
 
 def genearte_sock_path(is_sub = False):
     return '/tmp/gale.sock'
-    pid = is_sub and os.getpid() or os.getpid()
-    sock_path = os.path.join(tempfile.gettempdir(), 'gale_ipc_%s' % pid)
-
-    return sock_path
 
 class _Memory(dict):
     def set(self, name, value):
@@ -78,7 +74,6 @@ class IPCServer(object):
     def _serve_forever(self):
         if self.is_start:
             return
-        print('ipc server 已开启')
 
         self.is_start = True
         while True:

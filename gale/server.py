@@ -20,7 +20,6 @@ class HTTPServer(object):
     """
         http server
     """
-
     def __init__(self, callback, host = '0.0.0.0', port = 8080, timeout= 15, max_client = 1000, autoreload = True):
         assert callable(callback) # callback必须是可调用的
         self.host = host
