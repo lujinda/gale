@@ -22,7 +22,8 @@ __all__ = ['IPCServer','IPCDict']
 
 ALL_OPERA = {'set': False, 'get': True, 'items': True, 'has_key': True,
         'pop': True, 'popitem': True, 'update': False, 'values': True,
-        'setdefault': True, 'keys': True, 'clear': False}
+        'setdefault': True, 'keys': True, 'clear': False, 'del': False, 
+        'incr': True}
 
 class FRAME():
     DATA_LENGTH = 8 # 数据的位数
@@ -31,8 +32,22 @@ def genearte_sock_path(is_sub = False):
     return '/tmp/gale.sock'
 
 class _Memory(dict):
-    def set(self, name, value):
+    def _set(self, name, value):
         self[name] = value
+
+    def _del(self, name):
+        try:
+            del self[name]
+        except KeyError:
+            pass
+
+    def _incr(self, name, increment = 1):
+        if not isinstance(increment, int):
+            raise TypeError('increment type must be int')
+        current = self.setdefault(name, 0)
+        self[name] = current + increment
+
+        return self[name]
 
 class IPCMemory(object):
     _memory_block = {}
@@ -97,7 +112,7 @@ class Connection(object):
         return frame
 
     def close(self):
-        self.conn.close()
+        self._socket.close()
 
     def on_frame_header(self, frame):
         _header = ObjectDict()
@@ -134,7 +149,7 @@ class Connection(object):
         """这里的data是已经处理好了的"""
         frame = b''
         data_length = len(data)
-        frame += struct.pack('!Q', data_length)
+        frame += struct.pack(b'!Q', data_length)
         frame += data
         self._socket.sendall(frame)
 
@@ -142,6 +157,8 @@ class IPCConnection(Connection):
     def start_work(self):
         while True:
             frame = self.recv_parse_frame()
+            if not frame:
+                break
             self.exec_ipc(json.loads(frame.data))
 
 
@@ -149,6 +166,10 @@ class IPCConnection(Connection):
         ipc_memory = IPCMemory()
         name, command, args, kwargs = data
         need_return = ALL_OPERA[command]
+
+        if command not in dir({}):
+            command = '_' + command
+
         exec_func = getattr(ipc_memory[name], command)
         result = exec_func(*args, **kwargs)
 
@@ -199,4 +220,8 @@ class IPCDict(IPCClient):
 
     def __setitem__(self, name, value):
         self.set(name, value)
+
+
+    def __delitem__(self, name):
+        return self._exec_ipc('del', name)
 

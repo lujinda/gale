@@ -18,7 +18,7 @@ class ColorLogFormatter(logging.Formatter):
             logging.ERROR: '31'}
 
     def __init__(self, fmt = None, datefmt = None):
-        super(ColorLogFormatter, self).__init__(fmt, datefmt)
+        logging.Formatter.__init__(self, fmt, datefmt)
         self._raw_fmt = fmt
         self._re_fmt = re.compile(r'(%\(\w+?\)\w)')
 
@@ -29,7 +29,7 @@ class ColorLogFormatter(logging.Formatter):
 
         self._fmt = self._re_fmt.sub(generate_color_str, 
                 self._raw_fmt, count = 1)
-        return super(ColorLogFormatter, self).format(record)
+        return logging.Formatter.format(self, record)
 
 def config_logging(log_settings):
     """配置logging"""
