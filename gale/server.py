@@ -28,12 +28,25 @@ class HTTPServer(object):
         self.timeout = timeout 
         self.max_client = max_client 
         self.autoreload = autoreload
+        self.run_pool = []
 
     def listen(self, port = 8080, host = ''):
         self.port = port
         self.host = host
 
     def run(self, processes = 0):
+        try:
+            self._run(processes)
+            for p in self.run_pool:
+                p.join()
+        except KeyboardInterrupt:
+            self.stop()
+
+    def stop(self):
+        for p in self.run_pool:
+            p.terminate()
+
+    def _run(self, processes = 0):
         processes = processes or cpu_count() 
         if self.autoreload and processes != 1:  # 自动重载不支持多进程模式，自动关闭自动重载
             self.autoreload = False
@@ -44,10 +57,10 @@ class HTTPServer(object):
             self.__print_run_msg()
             _server.serve_forever()
         else:
-            self.multi_run(server = _server, processes = processes)
+            self._multi_run(server = _server, processes = processes)
 
-        ipc_server = IPCServer()
-        ipc_server.serve_forever()
+            ipc_server = IPCServer()
+            ipc_server.serve_forever()
 
     def __print_run_msg(self, processes = None):
         mess = "listen: http://%s:%s" % (self.host or '0.0.0.0', self.port)
@@ -56,19 +69,17 @@ class HTTPServer(object):
 
         print(mess)
 
-    def multi_run(self, server = None, processes = None):
+    def _multi_run(self, server = None, processes = None):
         _server = server or self.__made_server()
-        run_pool = []
         processes = processes or cpu_count() #  在此方法中，如未指定processes则是表示以cpu核数为限定
         for i in range(processes):
-            p = Process(target = _server.serve_forever)
-            run_pool.append(p)
+            p = Process(target = _server.serve_forever, args = (True, ))
+            self.run_pool.append(p)
 
-        for p in run_pool: # 启动所有进程
+        for p in self.run_pool: # 启动所有进程
             p.start()
 
         self.__print_run_msg(processes)
-
 
     def __made_server(self):
         return StreamServer((self.host, self.port), self._callback, 

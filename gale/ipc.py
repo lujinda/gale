@@ -61,15 +61,14 @@ class IPCServer(object):
         sock_path = genearte_sock_path()
         try:
             os.remove(sock_path)
-        except OSError:
-            pass
+        except OSError as e:
+            print(e)
 
         self._socket.bind(genearte_sock_path())
         self._socket.listen(50)
 
     def serve_forever(self):
-        p = Process(target = self._serve_forever)
-        p.start()
+        Process(target = self._serve_forever).start()
 
     def _serve_forever(self):
         if self.is_start:
@@ -80,6 +79,9 @@ class IPCServer(object):
             conn, addr = self._socket.accept()
             connection = IPCConnection(conn)
             gevent.spawn(connection.start_work)
+
+    def close(self):
+        os.remove(self._socket.getsockname())
 
 class Connection(object):
     def __init__(self, _socket):

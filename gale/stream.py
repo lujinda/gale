@@ -15,11 +15,12 @@ import sys
 import time
 import os
 from gevent import sleep
+import signal
 
 def monitor_files():
     while True:
         check_files()
-        sleep(0.1)
+        sleep(0.2)
 
 class StreamServer(object):
     def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True, timeout = 15, autoreload = False):
@@ -39,13 +40,16 @@ class StreamServer(object):
     def __autoreload(self):
         gevent.spawn(monitor_files)
 
-    def serve_forever(self):
+    def serve_forever(self, in_sub = False):
+        if in_sub: # 只在子进程中才忽略掉中断信号
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+
         if self.autoreload:
             self.__autoreload()
 
         while True:
+            s, addr = self._socket.accept()
             try:
-                s, addr = self._socket.accept()
                 set_close_exec(s.fileno())
                 s.setsockopt(socket.SOL_SOCKET, 
                     socket.SO_REUSEADDR, 1)

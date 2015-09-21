@@ -11,29 +11,29 @@ import hashlib
 from gale.escape import utf8
 try:
     import cPickle as pickle
-except ImportError:
+except NotImplementedError:
     import pickle
 
 class ICacheManager(object):
     def get(self, key): 
         """获取cache""" 
-        raise ImportError
+        raise NotImplementedError
 
     def set(self, key, value, expire = None):
         """设置一个cache,可传入key和expire"""
-        raise ImportError
+        raise NotImplementedError
 
     def flush_all(self):
         """清空所有缓存"""
-        raise ImportError
+        raise NotImplementedError
 
     def flush(self, key):
         """清删除某个key"""
-        raise ImportError
+        raise NotImplementedError
 
     @property
     def __name__(self):
-        raise ImportError
+        raise NotImplementedError
 
 class MemCacheManager(ICacheManager):
     """基于内存的"""

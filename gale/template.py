@@ -176,6 +176,19 @@ class Loader(BaseLoader):
             template = Template(f.read(), name=name, loader=self)
             return template
 
+class StringLoader(BaseLoader):
+    def __init__(self, chunk = '', **kwargs):
+        super(StringLoader, self).__init__(**kwargs)
+        self.chunk = chunk
+
+    def resolve_path(self, *args, **kwargs):
+        return None
+
+    def load(self, string):
+        return self._create_template(string)
+
+    def _create_template(self, string):
+        return Template(string, loader = self)
 
 class DictLoader(BaseLoader):
     """A template loader that loads from a dictionary."""

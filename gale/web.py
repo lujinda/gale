@@ -17,7 +17,6 @@ from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
 from gale.session import FileSessionManager
-from gale.ipc import IPCDict
 import traceback
 import time
 from functools import wraps
@@ -170,6 +169,13 @@ class RequestHandler(object):
         
         return t.generate(**kwargs)
 
+    def string_render(self, string, **kwargs):
+        _template_loader = self.create_template_loader()
+        name_space = self.get_name_space()
+        kwargs.update(name_space)
+        t = _template_loader.load(string)
+        return t.generate(**kwargs)
+
     def send_file(self, attr_path, attr_name = None, charset = 'utf-8', md5 = False):
         if bool(self._push_buffer):
             raise Exception("Can't redirect after push")
@@ -201,8 +207,8 @@ class RequestHandler(object):
 
         return _md5 and _md5.hexdigest() or None
 
-    def create_template_loader(self, template_path):
-        return template.Loader(template_path)
+    def create_template_loader(self, template_path = None):
+        return template_path and template.Loader(template_path) or template.StringLoader()
 
     def get_template_path(self):
         return self.settings.get('template_path', 'template')
@@ -762,7 +768,7 @@ class Application(object):
     def _static_md5_cache(self):
         if hasattr(self, '_static_md5_cache_instance'):
             return self._static_md5_cache_instance
-        _instance = IPCDict('static_md5_cache')
+        _instance = {}
 
         self._static_md5_cache_instance = _instance
         return _instance
@@ -825,11 +831,13 @@ class UIModule(object):
         self.request = handler.request
 
     def render(self):
-        raise ImportError
+        raise NotImplementedError
 
     def render_string(self, template_name, *args, **kwargs):
         return self.handler.render_string(template_name, *args, **kwargs)
 
+    def string_render(self, string, *args, **kwargs):
+        return self.handler.string_render(string, *args, **kwargs)
 
 
 class StaticFileHandler(RequestHandler):

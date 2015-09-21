@@ -10,6 +10,7 @@ gale/escape.py
 gale/http.py
 gale/httpconnection.py
 gale/iosocket.py
+gale/ipc.py
 gale/log.py
 gale/py_ver.py
 gale/server.py
