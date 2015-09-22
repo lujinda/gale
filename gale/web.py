@@ -12,7 +12,7 @@ except ImportError:
 
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
-from gale.utils import urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
@@ -147,10 +147,54 @@ class RequestHandler(object):
     def render(self, template_name, **kwargs):
         if self.is_finished:
             return False
-        render_string = self.render_string(template_name, **kwargs)
+        html = self.render_string(template_name, **kwargs)
+
+        # 自动加载js
+        load_js_list = self.__get_load_list(b'js')
+        if load_js_list:
+            offset = html.rfind(b'</body>')
+            js_html = b'\n'.join([b'<script src="{js_path}"></script>'.format(js_path = utf8(js_path)) for js_path in load_js_list])
+
+            html = html[:offset] + js_html + b'\n' + html[offset:]
+
+        # 自动加载css
+        load_css_list = self.__get_load_list(b'css')
+        if load_css_list:
+            offset = html.rfind(b'</head>')
+            css_html = b'\n'.join([b'<link style="stylesheet" href="{css_path}" />'.format(css_path = utf8(css_path)) for css_path in load_css_list])
+            html = html[:offset] + css_html + b'\n' + html[offset:]
 
         self.set_header('Content-Type', 'text/html;charset=UTF-8')
-        self.push(render_string)
+        self.push(html)
+
+    def __get_load_list(self, _type):
+        assert _type in (b'js', b'css')
+
+        _list = []
+        load_list = getattr(self, b'load_' + _type)()
+        if not load_list:
+            return []
+
+        load_list = isinstance(load_list, (list, tuple)) and load_list or [load_list]
+
+        for _item in load_list:
+            _abs_path = self.get_static_url(_item, is_abs = True)
+            if os.path.exists(_abs_path) == False:
+                raise OSError('%s not exist' % (_abs_path, ))
+
+            if os.path.isdir(_abs_path):
+                _list.extend([_url for _url in self.get_static_urls(_item) \
+                        if _url.endswith(b'.' + _type)]) # 当css时，过滤掉非css的，js时，过滤掉非js的
+            else:
+                _list.append(self.get_static_url(_item))
+
+        return _list
+
+    def load_js(self):
+        return []
+
+    def load_css(self):
+        return []
 
     def render_string(self, template_name, **kwargs):
         for _param_key in kwargs:
@@ -234,12 +278,28 @@ class RequestHandler(object):
         """可以在这里定义一些额外的namespce"""
         return {}
 
-    def get_static_url(self, file_path):
+    def get_static_url(self, file_path, is_abs = False):
         assert self.static_path, "static_url must had 'static_path' in app\'s settings"
         static_class = self.settings.get('static_class', StaticFileHandler)
+        if is_abs:
+            return static_class.make_absolute_path(self.static_path, file_path)
         static_url = static_class.get_static_url(self.settings, file_path)
         return static_url
 
+    def get_static_urls(self, path):
+        """获取某一个目录下的所有静态资源"""
+        assert self.static_path, "get_static_urls must had 'static_path' in app\'s settings"
+        abs_path = self.get_static_url(path, is_abs = True)
+        if not os.path.isdir(abs_path):
+            return [abs_path]
+
+        urls = []
+        for dirname, _, _files  in os.walk(abs_path):
+            for _file in _files:
+                url = os.path.join(dirname, _file)[len(self.static_path) + 1: ]
+                urls.append(self.get_static_url(url))
+
+        return urls
 
     @property
     def is_finished(self):
@@ -466,6 +526,7 @@ class RequestHandler(object):
         """把异常信息推送出去"""
         exc = utf8(exc)
         self._push_buffer = []
+        self.push(self.__response_first_line)
         if not self.settings.get('debug', False): # 只允许 在debug情况下输出错误
             return
 
@@ -473,7 +534,6 @@ class RequestHandler(object):
             self.push(exc + b'\n')
         else:
             pass
-        self.push(self.__response_first_line)
 
     @property
     def _status_mess(self):
@@ -593,6 +653,9 @@ class RequestHandler(object):
         user_pwd = base64.decodestring(authorization.split()[-1].strip())
         return user_pwd.split(':', 1)
 
+    def on_connect_close(self):
+        pass
+
 class ErrorHandler(RequestHandler):
     def ALL(self):
         status_code = self.kwargs.get('status_code', 500)
@@ -666,7 +729,7 @@ class Application(object):
             if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
                 traceback.print_exc()
         finally:
-            if (not is_wsgi) and (getattr(handler, '_is_auth_finish', False) == False):
+            if (not is_wsgi) and (getattr(handler, '_is_auto_finish', False) == False):
                 handler.finish()
 
         return handler
@@ -819,7 +882,7 @@ def auth_401(method):
 def async(method):
     @wraps(method)
     def wrap(self, *args, **kwargs):
-        self._is_auth_finish = True
+        self._is_auto_finish = True
         return method(self, *args, **kwargs)
 
     return wrap

@@ -14,6 +14,15 @@ class CacheHandler(RequestHandler):
         print('a + b')
         return a + b
 
+    def on_connect_close(self):
+        print('断开了')
+
+    def load_js(self):
+        return 'js'
+
+    def load_css(self):
+        return 'css'
+
 @router(url = '/', method = 'GET')
 def index(self):
     raise HTTPError(500)
@@ -26,5 +35,5 @@ def test(self):
 def login_post(self):
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(__file__, settings = {'debug': False, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 10,  port = 5000)
+app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
 

@@ -35,7 +35,8 @@ class IOSocket():
     def set_timeout(self, secs = 60):
         self._socket.settimeout(secs)
 
-    def on_close(self):
+    def on_close(self): # 在RequestHandler中会被赋值
+        print('closeaaaaaaaaa')
         pass
 
     def send_string(self, string):

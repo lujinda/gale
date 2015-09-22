@@ -55,7 +55,7 @@ class HTTPConnection(IOSocket):
         while True and self.closed == False:
             try:
                 _headers = self.read_headers()
-            except socket.timeout: # socket超时的异步不报出
+            except socket.timeout: # socket超时的异常不报
                 _headers = None
 
             if not _headers:
