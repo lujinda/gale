@@ -24,6 +24,8 @@ import uuid
 import fcntl
 import gevent
 from gevent import Greenlet
+from functools import wraps
+import sys
 
 def set_close_exec(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFD)
@@ -115,6 +117,12 @@ def ShareDict(*args, **kwargs):
 
 from gale.py_ver import is_py3
 unicode_type = is_py3 and str or unicode
+
+def is_string(s):
+    if is_py3:
+        return isinstance(s, str)
+    else:
+        return isinstance(s, (str, unicode))
 
 if is_py3:
     exec("""

@@ -34,7 +34,7 @@ class ConnHandler(WebSocketHandler):
                 message = message))
 
 app = Application([(r'/conn', ConnHandler)],
-        settings = {'debug': True, 
+        settings = {'debug': False, 
             'template_path': 'template',
             'static_path': 'static'})
 

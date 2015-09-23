@@ -10,7 +10,7 @@ import base64
 import struct
 import hashlib
 from gale.escape import utf8
-from gale.utils import urlsplit, ObjectDict
+from gale.utils import urlsplit, ObjectDict, is_string
 from gale.web import RequestHandler, async, HTTPError
 from gale.e import WebSocketError
 
@@ -40,6 +40,7 @@ class WebSocketConnection(object):
                 ]
         response = utf8('\r\n'.join(response) + '\r\n' * 2)
         self.stream.write(response)
+        self.handler.on_open()
         while self.closed == False:
             frame_data = self.recv_frame_data()
             if frame_data.opcode == 0x1: # 接受text
@@ -150,7 +151,6 @@ class WebSocketHandler(RequestHandler):
 
         self._websocket_conn = WebSocketConnection(self.__websocket_version,
                 self.__websocket_key, self)
-        self.on_open()
         try:
             self._websocket_conn.accept()
         except WebSocketError:
@@ -166,6 +166,8 @@ class WebSocketHandler(RequestHandler):
         pass
 
     def send_message(self, chunk):
+        if not is_string(chunk):
+            raise WebSocketError('message type must str or unicode')
         frame = ObjectDict({'fin': 1, 'data': utf8(chunk), 'opcode': 1})
         self._websocket_conn.send_frame_data(frame)
 

@@ -17,6 +17,7 @@ import tempfile
 import time
 import struct
 from functools import partial
+import signal
 
 __all__ = ['IPCServer','IPCDict']
 
@@ -62,7 +63,6 @@ class IPCMemory(object):
         return self._memory_block.setdefault(name, _Memory())
 
 class IPCServer(object):
-    is_start = False
     def __new__(cls, *args, **kwargs):
         if hasattr(IPCServer, '_instance'):
             return IPCServer._instance
@@ -76,25 +76,33 @@ class IPCServer(object):
         sock_path = genearte_sock_path()
         try:
             os.remove(sock_path)
-        except OSError:
-            pass
+        except OSError as e:
+            if e.errno != 2: # 2表示no such file or direrctory
+                print(e)
 
         self._socket.bind(genearte_sock_path())
         self._socket.listen(50)
 
     def serve_forever(self):
-        p = Process(target = self._serve_forever)
-        p.start()
+        Process(target = self._serve_forever).start()
 
     def _serve_forever(self):
-        if self.is_start:
-            return
-
-        self.is_start = True
-        while True:
-            conn, addr = self._socket.accept()
+        signal.signal(signal.SIGINT, self.close)
+        while not self._socket.closed:
+            try:
+                conn, addr = self._socket.accept()
+            except socket.error:
+                self.close()
+                break
             connection = IPCConnection(conn)
             gevent.spawn(connection.start_work)
+
+    def close(self, *args):
+        if self._socket.closed:
+            return
+
+        os.remove(self._socket.getsockname())
+        self._socket.close()
 
 class Connection(object):
     def __init__(self, _socket):
