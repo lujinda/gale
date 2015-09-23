@@ -5,5 +5,5 @@
 # Last modified   : 2015-03-25 13:19:19
 # Filename        : __init__.py
 # Description     : 
-version = '2.5.1'
+version = '2.6'
 
