@@ -12,10 +12,11 @@ except ImportError:
 
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
-from gale.utils import is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
-from gale import template
+from gale import template, cache
+from gale.ipc import IPCDict
 from gale.session import FileSessionManager
 
 import traceback
@@ -101,6 +102,10 @@ class RequestHandler(object):
 
     def PUT(self, *args, **kwargs):
         raise NotSupportMethod
+
+    @property
+    def server_settings(self):
+        return self.application.server_settings
 
     @property
     def login_url(self):
@@ -683,6 +688,9 @@ class Application(object):
                 r'/(favicon\.ico)', r'/(robots\.txt)'):
                 handlers.append((url_re, static_class))
 
+        if settings.get('debug'):
+            handlers.append((r'/gale/debug', DebugHandler))
+
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
         self.vhost_handlers = []
         for _vhost_handler in vhost_handlers:
@@ -831,13 +839,12 @@ class Application(object):
         http_server.run(processes)
 
     @property
+    @cache.cache_self
     def _static_md5_cache(self):
-        if hasattr(self, '_static_md5_cache_instance'):
-            return self._static_md5_cache_instance
-        _instance = {}
-
-        self._static_md5_cache_instance = _instance
-        return _instance
+        if self.server_settings['processes'] == 1:
+            return {}
+        else:
+            return IPCDict('_static_md5_cache')
 
 def limit_referrer(method):
     """防外链"""
@@ -1134,7 +1141,12 @@ def decode_signed_cookie_tornado(secret, name, value):
     return base64.decodestring(field_value)
 
 from gale.server import HTTPServer
-HANDLER_LIST = []
+
+@single_pattern
+class _HANDLER_LIST(list):
+    pass
+
+HANDLER_LIST = _HANDLER_LIST()
 
 def router(*args, **kwargs):
     def wraps(method_func):

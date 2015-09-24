@@ -6,7 +6,7 @@
 # Filename      : ipc.py
 # Description   : 
 from __future__ import print_function
-from gale.utils import set_close_exec, ObjectDict
+from gale.utils import set_close_exec, ObjectDict, single_pattern
 from gale.e import IPCError
 from gevent import socket
 import gevent
@@ -50,26 +50,15 @@ class _Memory(dict):
 
         return self[name]
 
+@single_pattern
 class IPCMemory(object):
     _memory_block = {}
-    def __new__(cls, *args, **kwargs):
-        if hasattr(IPCMemory, '_instance'):
-            return IPCMemory._instance
-        _instance = object.__new__(cls, *args, **kwargs)
-        IPCMemory._instance = _instance
-        return _instance
 
     def __getitem__(self, name):
         return self._memory_block.setdefault(name, _Memory())
 
+@single_pattern
 class IPCServer(object):
-    def __new__(cls, *args, **kwargs):
-        if hasattr(IPCServer, '_instance'):
-            return IPCServer._instance
-        _instance = object.__new__(cls, *args, **kwargs)
-        IPCServer._instance = _instance
-        return _instance
-
     def __init__(self):
         self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         set_close_exec(self._socket.fileno())
@@ -78,13 +67,12 @@ class IPCServer(object):
             os.remove(sock_path)
         except OSError as e:
             if e.errno != 2: # 2表示no such file or direrctory
-                print(e)
-
+                raise e
+            
         self._socket.bind(genearte_sock_path())
         self._socket.listen(50)
 
     def serve_forever(self):
-        print("ipc server start")
         Process(target = self._serve_forever).start()
 
     def _serve_forever(self):

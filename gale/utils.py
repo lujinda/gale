@@ -155,3 +155,17 @@ class ObjectDict(dict):
     def __getattr__(self, key):
         return self[key]
 
+
+def single_pattern(obj):
+    @wraps(obj)
+    def wrap(*args, **kwargs):
+        if hasattr(obj, '_instance'):
+            return obj._instance
+
+        _instance = obj.__new__(obj, *args, **kwargs)
+        obj.__init__(_instance, *args, **kwargs)
+        obj._instance = _instance
+        return _instance
+
+    return wrap
+

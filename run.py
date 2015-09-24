@@ -29,11 +29,20 @@ def index(self):
 
 @router(url = '/test', method='GET', base_handler = CacheHandler)
 def test(self):
+    print('共有 %s 个进程 ' % (self.server_settings['processes']))
     self.render('t.html', l = [1, 2, 3])
 
 @router(url = '/test', method = 'POST')
 def login_post(self):
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
+app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 0,  port = 5000)
+
+@router(url = 'login', method = 'POST')
+def login(self):
+    """
+    username| 用户名
+    password| 密码
+    """
+    pass
 

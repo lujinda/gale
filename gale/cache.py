@@ -9,6 +9,7 @@ from gale.e import CacheError
 import time
 import hashlib
 from gale.escape import utf8
+from functools import wraps
 try:
     import cPickle as pickle
 except NotImplementedError:
@@ -162,6 +163,7 @@ def cache(key = None, expire = None, on = None):
 
 def page(expire = None, on = None):
     def outer_wrap(func):
+        @wraps(func)
         def inner_wrap(hdl, *args, **kwargs):
             if hdl.request.method != 'GET':
                 raise CacheError('page cache only support GET method')
@@ -190,4 +192,19 @@ def page(expire = None, on = None):
         return inner_wrap
 
     return outer_wrap
+
+def cache_self(func):
+    @wraps(func)
+    def wrap(self):
+        _key = '_cache_' + func.__name__[0]
+        _cache = getattr(self, _key, None)
+        if _cache:
+            return _cache
+
+        _value = func(self)
+        setattr(self, _key, _value)
+
+        return _value
+
+    return wrap
 

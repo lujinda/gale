@@ -13,6 +13,7 @@ except ImportError as e:
     from gale.wsgi.stream import StreamServer
 
 from gale.ipc import IPCServer
+import atexit
 
 from multiprocessing import  cpu_count, Process
 
@@ -47,6 +48,8 @@ class HTTPServer(object):
         self.run_pool = []
         self.settings = ServerSettings(processes = 0, timeout = timeout,
                         max_client = max_client)
+
+        atexit.register(self.stop)
 
     def listen(self, port = 8080, host = ''):
         self.port = port
