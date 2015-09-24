@@ -50,7 +50,7 @@ class HTTPConnection(IOSocket):
 
         return _headers.strip()
 
-    def get_request(self, callback):
+    def get_request(self, callback, **kwargs):
         """获取用户的请求信息，并可以成功取得一个http请求时，生成一个HTTPRequest, 并激活回调函数(application的__call__)"""
         while True and self.closed == False:
             try:
@@ -64,7 +64,8 @@ class HTTPConnection(IOSocket):
 
             self._headers = _headers
             request = get_request(self)
-            callback(request, False)
+            kwargs['is_wsgi'] = False
+            callback(request, **kwargs)
 
     def send_headers(self, headers_string):
         """headers_string是已经被处理过了的头信息，直接写入就行"""

@@ -17,6 +17,7 @@ from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template
 from gale.session import FileSessionManager
+
 import traceback
 import time
 from functools import wraps
@@ -714,9 +715,11 @@ class Application(object):
         if not _re_host_exists:
             self.vhost_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
     
-    def __call__(self, request, is_wsgi = False):
+    def __call__(self, request, is_wsgi = False, server_settings = None):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
             return
+
+        self.server_settings = server_settings or {}
 
         request.real_ip = self.settings.get('real_ip', True) # 设定是否要获取真实ip地址
 

@@ -23,7 +23,7 @@ def monitor_files():
         sleep(0.2)
 
 class StreamServer(object):
-    def __init__(self, listen_add, callback, max_client = 1000, reuse_add = True, timeout = 15, autoreload = False):
+    def __init__(self, listen_add, callback, settings, reuse_add = True, autoreload = False):
         self._socket = socket.socket(socket.AF_INET, 
                 socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, 
@@ -32,10 +32,12 @@ class StreamServer(object):
         set_close_exec(self._socket.fileno())
 
         self._socket.bind(listen_add)
-        self._socket.listen(max_client)
+        self._socket.listen(settings.max_client)
         self._callback = callback
-        self.timeout = timeout
+        self.timeout = settings.timeout
         self.autoreload = autoreload
+
+        self.settings = settings
 
     def __autoreload(self):
         gevent.spawn(monitor_files)
@@ -55,7 +57,8 @@ class StreamServer(object):
                     socket.SO_REUSEADDR, 1)
                 s.settimeout(self.timeout) # 设置客户端的超时时间
                 connection = HTTPConnection(s)
-                gevent.spawn(connection.get_request, self._callback).link_exception(connection.gevent_exception) # 当成功生成一个request时，就会把request传入callback中去，一般是Application
+                gevent.spawn(connection.get_request, self._callback,
+                                server_settings = self.settings).link_exception(connection.gevent_exception) # 当成功生成一个request时，就会把request传入callback中去，一般是Application
             except Exception as e:
                 s.close()
 

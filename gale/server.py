@@ -16,6 +16,24 @@ from gale.ipc import IPCServer
 
 from multiprocessing import  cpu_count, Process
 
+class ServerSettings(dict):
+    def __new__(self, *args, **kwargs):
+        if hasattr(ServerSettings, '_instance'):
+            return ServerSettings._instance
+        instance = dict.__new__(self, *args, **kwargs)
+        ServerSettings._instance = instance
+
+        return ServerSettings._instance
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __getattr__(self, name):
+        try:
+             return self[name]
+        except KeyError:
+             raise 
+
 class HTTPServer(object):
     """
         http server
@@ -25,10 +43,10 @@ class HTTPServer(object):
         self.host = host
         self.port = port
         self._callback = callback # 表示回调函数
-        self.timeout = timeout 
-        self.max_client = max_client 
         self.autoreload = autoreload
         self.run_pool = []
+        self.settings = ServerSettings(processes = 0, timeout = timeout,
+                        max_client = max_client)
 
     def listen(self, port = 8080, host = ''):
         self.port = port
@@ -48,6 +66,7 @@ class HTTPServer(object):
 
     def _run(self, processes = 0):
         processes = processes or cpu_count() 
+        self.settings.processes = processes
         if self.autoreload and processes != 1:  # 自动重载不支持多进程模式，自动关闭自动重载
             self.autoreload = False
             print("autoreload not suport multi procesess")
@@ -83,5 +102,5 @@ class HTTPServer(object):
 
     def __made_server(self):
         return StreamServer((self.host, self.port), self._callback, 
-                max_client = self.max_client, timeout = self.timeout, autoreload = self.autoreload)
+                 autoreload = self.autoreload, settings = self.settings)
 

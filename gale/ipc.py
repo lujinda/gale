@@ -84,6 +84,7 @@ class IPCServer(object):
         self._socket.listen(50)
 
     def serve_forever(self):
+        print("ipc server start")
         Process(target = self._serve_forever).start()
 
     def _serve_forever(self):
