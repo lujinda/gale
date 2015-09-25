@@ -39,11 +39,19 @@ def login_post(self):
 @router(url = '/login', method = 'GET')
 def login(self):
     """
-    resetapi: 登录用户
-    username| 用户名
-    password| 密码
+    restapi: 查询某个用户是否登录
+    username|用户名
+    """ 
+
+@router(url = '/login', method = 'POST')
+def login_post(self):
     """
-    self.push(self.query.username)
+    restapi: 用户登录
+    username | 用户
+    password | 密码
+    """
+    self.push(self.body.username)
+
 
 app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
 

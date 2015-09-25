@@ -18,6 +18,7 @@ from gale.log import access_log, config_logging
 from gale import template, cache
 from gale.ipc import IPCDict
 from gale.session import FileSessionManager
+from gale.restapi import RestApi
 
 import traceback
 import time
@@ -697,10 +698,9 @@ class Application(object):
         for _vhost_handler in vhost_handlers:
             self.add_handlers(*_vhost_handler)
 
-        # 缺省的一些handler被从vhost_handlers中分离出来
+        # 缺省的一些handler被从vhost_handlers中分离出来, 使缺省的handler应用到所有的host handlers中去
         self.default_handlers = [(self.__re_compile(_url), _hdl, {}) \
                 for _url, _hdl in default_handlers]
-
 
         config_logging(log_settings)
 
@@ -1166,24 +1166,11 @@ class DebugHandler(RequestHandler):
         if not self.settings.get('debug'):
             raise HTTPError(404)
 
+        self.restapi = RestApi(self.application.vhost_handlers)
+
     def GET(self):
-        print(self.api_handlers)
-
-    @cache.cache_self
-    def __get_all_handlers(self):
-        """把所有的handlers以及相关的url列出来"""
-        handlers = {}
-        host_map = {'.*': ''}
-        for _host, _handlers in self.application.vhost_handlers:
-            _host = host_map[_host]
-            for re_url, _handler in _handlers:
-                handlers[_host].setdefault(_host, []).append((re_url.pattern,
-                    _handler))
-        return handlers
-
-
-    def is_api_handler(self, handler):
-        pass
+        restapi_list = self.restapi.generate_restapi_list()
+        print(restapi_list)
 
 from gale.server import HTTPServer
 
