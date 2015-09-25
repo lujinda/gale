@@ -36,13 +36,14 @@ def test(self):
 def login_post(self):
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
-app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 0,  port = 5000)
-
-@router(url = 'login', method = 'POST')
+@router(url = '/login', method = 'GET')
 def login(self):
     """
+    resetapi: 登录用户
     username| 用户名
     password| 密码
     """
-    pass
+    self.push(self.query.username)
+
+app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
 

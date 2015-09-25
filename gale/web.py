@@ -12,7 +12,7 @@ except ImportError:
 
 from gale.http import  HTTPHeaders
 from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
-from gale.utils import single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
+from gale.utils import  single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
 from gale import template, cache
@@ -57,10 +57,12 @@ class RequestHandler(object):
         self.request = request
         self._push_buffer = []
         self.cache_page = False
-        self.body = None
+        self.response_body = None
         self._finished = False
         self._headers = HTTPHeaders()
         self._buffer_md5 = hashlib.md5()
+        self.body = ParamsObject(self.request.body_arguments)
+        self.query = ParamsObject(self.request.query_arguments)
         if self.request.method not in _ALL_METHOD:
             raise NotSupportMethod
 
@@ -343,7 +345,7 @@ class RequestHandler(object):
 
         _buffer = _buffer or b''.join(self._push_buffer)
 
-        _body = self.process_buffer(_buffer)
+        _response_body = self.process_buffer(_buffer)
 
         _buffer_md5 = self._buffer_md5.hexdigest()
         self.set_header('Etag', _buffer_md5)
@@ -356,29 +358,28 @@ class RequestHandler(object):
         if self.is_finished:
             return
 
-        self.set_header('Connection', self.request.is_keep_alive() and 'Keep-Alive' or 'Keep-Alive')
+        self.set_header('Connection', self.request.is_keep_alive() and 'Keep-Alive' or 'Close')
 
         if hasattr(self, '_new_cookie'):
             for cookie in self._new_cookie.values():
                 self.add_header('Set-Cookie', cookie.OutputString())
 
         if self.cache_page and self._status_code in (200, 304):
-            self.body = _buffer
+            self.response_body = _buffer
         else:
-            self.body = None
+            self.response_body = None
 
 
         del _buffer
 
         if self._status_code != 304: 
-            self.set_header('Content-Length', len(_body))
+            self.set_header('Content-Length', len(_response_body))
 
         _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
         self.request.connection.send_headers(_headers)
 
         if is_return_304 != True and self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
-            self.request.connection.send_body(_body)
-
+            self.request.connection.send_body(_response_body)
 
     def log_print(self):
         _log = "{method} {path} {response_first_line} {client_ip} {request_time}".format(
@@ -425,7 +426,7 @@ class RequestHandler(object):
         self.on_finish()
 
     def set_header(self, name, value):
-        if not value:
+        if value == None:
             return
         self._headers[name] = value
 
@@ -581,7 +582,6 @@ class RequestHandler(object):
     def get_file(self, name):
         return self.__get_one_argument(self.get_files(name))
 
-
     @property
     def session(self):
         _session = getattr(self, '_session', None)
@@ -680,21 +680,28 @@ class Application(object):
         """
         self.settings = settings
         self.ui_settings = ui_settings
+        default_handlers = []
 
         if settings.get('static_path'):
             static_class = settings.get('static_class', StaticFileHandler)
             for url_re in (r'%s(.*)' %
                 (settings.get('static_prefix', r'/static/')),
                 r'/(favicon\.ico)', r'/(robots\.txt)'):
-                handlers.append((url_re, static_class))
+                default_handlers.append((url_re, static_class))
 
         if settings.get('debug'):
-            handlers.append((r'/gale/debug', DebugHandler))
+            default_handlers.append((r'/gale/debug', DebugHandler))
 
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
         self.vhost_handlers = []
         for _vhost_handler in vhost_handlers:
             self.add_handlers(*_vhost_handler)
+
+        # 缺省的一些handler被从vhost_handlers中分离出来
+        self.default_handlers = [(self.__re_compile(_url), _hdl, {}) \
+                for _url, _hdl in default_handlers]
+
+
         config_logging(log_settings)
 
     def __re_compile(self, re_string):
@@ -703,7 +710,8 @@ class Application(object):
             re_string, (not re_string.endswith('$')) and '$' or '')  # 自动给url加上开头与结尾
         return re.compile(re_string)
 
-    def add_handlers(self, re_host_string, host_handlers):
+    def add_handlers(self, re_host_string, host_handlers, to_handlers = None):
+        to_handlers = self.vhost_handlers if to_handlers == None else to_handlers
         _re_host_exists = False
         _compile_handlers = []
         for _a_url_item in host_handlers:
@@ -721,7 +729,7 @@ class Application(object):
                 _re_host_exists = True
                 break
         if not _re_host_exists:
-            self.vhost_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
+            to_handlers.insert(-1, (self.__re_compile(re_host_string), _compile_handlers))
     
     def __call__(self, request, is_wsgi = False, server_settings = None):
         if not request: # 如果无法获取一个request，则结束它，表示连接已经断开
@@ -761,8 +769,7 @@ class Application(object):
                 self.handlers = handlers
                 break
 
-
-        for url_re, url_handler, kwargs in self.handlers:
+        for url_re, url_handler, kwargs in self.handlers + self.default_handlers:
             _match = url_re.match(request_path)
             if _match: # 如果匹配上了，就执行下一步
                 return url_handler(self, request, kwargs = kwargs), _match.groups(), _match.groupdict()
@@ -1139,6 +1146,44 @@ def decode_signed_cookie_tornado(secret, name, value):
         return None
 
     return base64.decodestring(field_value)
+
+class ParamsObject(object):
+    def __init__(self, params):
+        self._params =  params
+
+    def __getitem__(self, name):
+        value = self._params.get(name, None)
+        if value == None:
+            return None
+
+        return value[0]
+
+    def __getattr__(self, name):
+        return self[name]
+
+class DebugHandler(RequestHandler):
+    def ALL(self):
+        if not self.settings.get('debug'):
+            raise HTTPError(404)
+
+    def GET(self):
+        print(self.api_handlers)
+
+    @cache.cache_self
+    def __get_all_handlers(self):
+        """把所有的handlers以及相关的url列出来"""
+        handlers = {}
+        host_map = {'.*': ''}
+        for _host, _handlers in self.application.vhost_handlers:
+            _host = host_map[_host]
+            for re_url, _handler in _handlers:
+                handlers[_host].setdefault(_host, []).append((re_url.pattern,
+                    _handler))
+        return handlers
+
+
+    def is_api_handler(self, handler):
+        pass
 
 from gale.server import HTTPServer
 
