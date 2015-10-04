@@ -36,12 +36,18 @@ def test(self):
 def login_post(self):
     self.push('hello: ' + self.get_argument('firstname', '1') + " " +self.get_argument('lastname'))
 
+@router(url = '/down', method = 'GET')
+def down(self):
+    self.send_file('/data/iso/CentOS.6.4.iso', speed = 1024 * 40)
+
 @router(url = '/login', method = 'GET')
 def login(self):
     """
     restapi: 查询某个用户是否登录
     username|用户名
     """ 
+    print(self.request.uri)
+    print(self.request.all_arguments)
 
 @router(url = '/login', method = 'POST')
 def login_post(self):
@@ -53,5 +59,5 @@ def login_post(self):
     self.push(self.body.username)
 
 
-app_run(settings = {'debug': True, 'gzip': True, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
+app_run(settings = {'debug': True, 'gzip': False, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
 

@@ -126,7 +126,6 @@ class HTTPHeaders(dict):
         for _k, _v in headers.items():
             self[_k] = _v
 
-
     @staticmethod
     def _parse_headers(headers):
         """把http头信息组织到一个字典中去"""
@@ -157,6 +156,7 @@ class HTTPHeaders(dict):
 
         return _headers_string + CRLF * 2
 
+
     def get_headers_items(self):
         items = []
         for key, values in self._headers_map_list.items():
@@ -172,6 +172,10 @@ class HTTPHeaders(dict):
             return self._headers_map_list[name][0]
         else:
             raise KeyError
+
+    def set_default_header(self, name, value):
+        if name not in self._headers_map_list:
+            self[name] = value
 
     def get(self, name, default = None):
         if self.__is_request:

@@ -11,7 +11,7 @@ except ImportError:
     import http.cookies as Cookie
 
 from gale.http import  HTTPHeaders
-from gale.e import NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
+from gale.e import HasFinished, NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
 from gale.utils import  single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str
 from gale.log import access_log, config_logging
@@ -31,6 +31,8 @@ import glob
 import gzip
 import re
 import base64
+import gevent
+
 
 try:
     from cStringIO import StringIO as s_io
@@ -64,6 +66,10 @@ class RequestHandler(object):
         self._buffer_md5 = hashlib.md5()
         self.body = ParamsObject(self.request.body_arguments)
         self.query = ParamsObject(self.request.query_arguments)
+        self.__been_writen_headers = False
+        self.__is_sending_file = True # 表示正在发送文件， flush_body的方式会改变
+        self.request.connection.on_close_callback = self.on_connect_close
+
         if self.request.method not in _ALL_METHOD:
             raise NotSupportMethod
 
@@ -229,7 +235,8 @@ class RequestHandler(object):
         t = _template_loader.load(string)
         return t.generate(**kwargs)
 
-    def send_file(self, attr_path, attr_name = None, charset = 'utf-8', md5 = False):
+    def send_file(self, attr_path, attr_name = None, charset = 'utf-8', speed = None):
+        """speed: 下载速度, 单位是字节B"""
         if bool(self._push_buffer):
             raise Exception("Can't redirect after push")
 
@@ -240,25 +247,29 @@ class RequestHandler(object):
         self.set_header('Content-Type', get_mime_type(attr_path))
         self.set_header('Content-Disposition', 
                 native_str('attachment;filename="%s"') % (native_str(attr_name), ))
+        self.set_header('Content-Length', os.stat(attr_path).st_size)
 
-        md5_value = self.__send_file(attr_path, md5)
-        if md5_value:
-            self.set_header('Content-MD5', md5_value)
+        self.__is_sending_file = True
+
+        sleep_secs = speed and (1.0 / (1.0 * speed / BUFFER_SIZE)) or None
+
+
+        self.__send_file(attr_path, sleep_secs)
 
         self.finish()
 
-    def __send_file(self, attr_path, md5):
-        _md5 = md5 and hashlib.md5() or None
+    def __send_file(self, attr_path, sleep_secs = None):
         with open(attr_path, 'rb') as fd:
-            while True:
+            while not self.request.connection.closed:
                 _content = fd.read(BUFFER_SIZE)
                 if not _content:
                     break;
                 self.push(_content)
-                if _md5:
-                    _md5.update(_content)
+                self.flush()
+                if sleep_secs:
+                    gevent.sleep(sleep_secs)
 
-        return _md5 and _md5.hexdigest() or None
+            self._push_buffer = []
 
     def create_template_loader(self, template_path = None):
         return template_path and template.Loader(template_path) or template.StringLoader()
@@ -339,14 +350,15 @@ class RequestHandler(object):
 
         return request_version == buffer_md5
 
-    def flush(self, _buffer = None):
-        self.before_flush()
-        if self.request.connection.closed:
+    def _flush_body(self, response_body):
+        """发送body数据用得，StaticFileHandler需要重写它"""
+        connection = self.request.connection
+        if self.__is_sending_file:
+            if response_body:
+                connection.send_body(response_body)
+            else:
+                connection.send_finish_tag()
             return
-
-        _buffer = _buffer or b''.join(self._push_buffer)
-
-        _response_body = self.process_buffer(_buffer)
 
         _buffer_md5 = self._buffer_md5.hexdigest()
         self.set_header('Etag', _buffer_md5)
@@ -355,32 +367,40 @@ class RequestHandler(object):
         if is_return_304:
             self.set_status(304)
 
-        self._push_buffer = []
+        if is_return_304 != True and self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
+            connection.send_body(response_body)
+            connection.send_finish_tag()
+
+    def flush(self, _buffer = None):
+        self.before_flush()
         if self.is_finished:
             return
 
-        self.set_header('Connection', self.request.is_keep_alive() and 'Keep-Alive' or 'Close')
+        if self.request.connection.closed:
+            return
 
-        if hasattr(self, '_new_cookie'):
-            for cookie in self._new_cookie.values():
-                self.add_header('Set-Cookie', cookie.OutputString())
+        _buffer = _buffer or b''.join(self._push_buffer)
+        _response_body = self.process_buffer(_buffer)
+
+        if self.__been_writen_headers == False:
+            self.__been_writen_headers = True
+            self.set_header('Connection', self.request.is_keep_alive() and 'Keep-Alive' or 'Close')
+            self.set_default_header('Content-Length', len(_response_body))
+            if hasattr(self, '_new_cookie'):
+                for cookie in self._new_cookie.values():
+                    self.add_header('Set-Cookie', cookie.OutputString())
+            _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
+            self.request.connection.send_headers(_headers)
+
+        self._flush_body(_response_body)
+        self._push_buffer = []
 
         if self.cache_page and self._status_code in (200, 304):
             self.response_body = _buffer
         else:
             self.response_body = None
 
-
         del _buffer
-
-        if self._status_code != 304: 
-            self.set_header('Content-Length', len(_response_body))
-
-        _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
-        self.request.connection.send_headers(_headers)
-
-        if is_return_304 != True and self.request.method != 'HEAD': # 如果是HEAD请求的话则不返回主体内容
-            self.request.connection.send_body(_response_body)
 
     def log_print(self):
         _log = "{method} {path} {response_first_line} {client_ip} {request_time}".format(
@@ -426,9 +446,10 @@ class RequestHandler(object):
         self.log_print()
         self.on_finish()
 
+    def set_default_header(self, name, value):
+        self._headers.set_default_header(name, value)
+
     def set_header(self, name, value):
-        if value == None:
-            return
         self._headers[name] = value
 
     def add_header(self, name, value):
@@ -926,6 +947,7 @@ class StaticFileHandler(RequestHandler):
         return self.GET(file_path, is_include_body = False)
 
     def GET(self, file_path, is_include_body = True):
+        self.__is_sending_file = True
         absolute_path = self.make_absolute_path(self.static_path,
                 file_path)
         if not os.path.exists(absolute_path):
@@ -933,20 +955,30 @@ class StaticFileHandler(RequestHandler):
 
         self.absolute_path = absolute_path
 
-        content_version = self.get_content_version(absolute_path)
+        self.set_header('Content-Type', get_mime_type(self.absolute_path))
 
-        self.set_some_headers()
-        self.set_etag_header(content_version)
+        if self.get_content_size() < 1024 * 1024 * 10: # 10m以下的文件才做缓存
+            content_version = self.get_content_version(absolute_path)
 
-        is_return_304 = self.should_return_304(content_version)
+            self.set_expire_header()
+            self.set_etag_header(content_version)
+
+            is_return_304 = self.should_return_304(content_version)
+        else:
+            is_return_304 = False
 
         if is_return_304:
             self.set_status(304)
+        else:
+            self.set_header('Content-Length', self.get_content_size())
 
         if is_include_body and (not is_return_304): # 如果是Flase，则表示是HEAD方法传过来的，这时候不需要发送文件
             for _data in self.get_content(absolute_path):
                 self.push(_data)
+                self.flush()
 
+    def get_content_size(self):
+        return self.file_stat().st_size
 
     def should_return_304(self, content_version):
         """判断是否需要返回304,判断下request中的内容hash值与计算出来的是否一样就行了"""
@@ -960,6 +992,9 @@ class StaticFileHandler(RequestHandler):
         version = self.request.headers.get('If-None-Match', '')
         return version
 
+    def process_buffer(self, _buffer):
+        return _buffer
+
     @classmethod
     def get_content(cls, absolute_path):
         with open(absolute_path, 'rb') as fd:
@@ -971,9 +1006,6 @@ class StaticFileHandler(RequestHandler):
                 else:
                     return
 
-    def set_some_headers(self):
-        self.set_header('Content-Type', get_mime_type(self.absolute_path))
-        self.set_expire_header()
 
     def set_expire_header(self):
         """这是在设置跟过期有关的http头"""

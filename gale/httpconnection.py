@@ -75,6 +75,7 @@ class HTTPConnection(IOSocket):
         """同send_headers"""
         self.send_string(body_string)
 
+    def send_finish_tag(self):
         self.send_string(CRLF)
 
     def remote_ip(self):

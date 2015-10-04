@@ -182,7 +182,7 @@ def page(expire = None, on = None):
             hdl.cache_page = True
             result = func(hdl, *args, **kwargs)
             hdl.flush()
-            if hdl.body:  # 只在200和304时有body
+            if hdl.response_body:  # 只在200和304时有body
                 cache = {'status': hdl._status_code, 
                         'headers': hdl._headers, 'body': hdl.body}
                 cache_manager.set(_key, cache, expire)

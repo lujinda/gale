@@ -15,6 +15,7 @@ class IOSocket():
         self.max_buff = max_buff
         self.closed = False
         self._buff = b''
+        self.on_close_callback = None
 
     def write(self, chunk):
         self._socket.sendall(chunk)
@@ -36,13 +37,14 @@ class IOSocket():
         self._socket.settimeout(secs)
 
     def on_close(self): # 在RequestHandler中会被赋值
-        pass
+        if self.on_close_callback:
+            self.on_close_callback()
 
     def send_string(self, string):
         try:
             self._socket.sendall(string)
         except Exception as e:
-            self.closed = True
+            self.close()
 
     def is_close(self):
         if self.closed:
