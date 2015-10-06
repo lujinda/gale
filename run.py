@@ -39,8 +39,8 @@ def login_post(self):
 @router(url = '/down', method = 'GET')
 def down(self):
     print(self.request.headers)
-    # self.send_file('/data/iso/CentOS.6.4.iso', speed = 1024 * 40)
-    self.send_file('/data/HTTP权威指南完整版.pdf', speed = 1024  * 1024 * 1024 * 10)
+    self.send_file('/data/iso/CentOS.6.4.iso', speed = 1024  * 100)
+    #self.send_file('/data/HTTP权威指南完整版.pdf', speed = 1024  * 1024 * 1024 * 10)
 
 @router(url = '/login', method = 'GET')
 def login(self):

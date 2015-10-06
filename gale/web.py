@@ -50,7 +50,7 @@ except ImportError:
 _ALL_METHOD = ('POST', 'GET', 'PUT', 'DELETE', 'HEAD')
 re_signed_cookie = re.compile(r'^\|\d+')
 
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 4096 * 10
 
 class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
@@ -243,7 +243,6 @@ class RequestHandler(object):
         if not os.path.isfile(attr_path):
             raise OSError('file: %s  not found' % (attr_path, ))
 
-        file_size = os.stat(attr_path).st_size
 
         attr_name = attr_name or os.path.basename(attr_path)
         self.set_header('Content-Type', get_mime_type(attr_path))
@@ -255,6 +254,7 @@ class RequestHandler(object):
 
         sleep_secs = speed and (1.0 / (1.0 * speed / BUFFER_SIZE)) or None
 
+        file_size = os.stat(attr_path).st_size
         read_range = self.request.get_header('Range', None)
         start, _ = parse_request_range(read_range) # 由于是断点续传，只考虑start
         if start > 0:
