@@ -12,8 +12,8 @@ except ImportError:
 
 from gale.http import  HTTPHeaders
 from gale.e import HasFinished, NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
-from gale.utils import  single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, code_mess_map, format_timestamp # 存的是http响应代码与信息的映射关系
-from gale.escape import utf8, param_decode, native_str
+from gale.utils import  parse_request_range, single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, format_timestamp, code_mess_map # 存的是http响应代码与信息的映射关系
+from gale.escape import utf8, param_decode, native_str, to_unicode
 from gale.log import access_log, config_logging
 from gale import template, cache
 from gale.ipc import IPCDict
@@ -162,31 +162,31 @@ class RequestHandler(object):
     def render(self, template_name, **kwargs):
         if self.is_finished:
             return False
-        html = self.render_string(template_name, **kwargs)
+        html = to_unicode(self.render_string(template_name, **kwargs))
 
         # 自动加载js
-        load_js_list = self.__get_load_list(b'js')
+        load_js_list = self.__get_load_list('js')
         if load_js_list:
-            offset = html.rfind(b'</body>')
-            js_html = b'\n'.join([b'<script src="{js_path}"></script>'.format(js_path = utf8(js_path)) for js_path in load_js_list])
+            offset = html.rfind('</body>')
+            js_html = '\n'.join(['<script src="{js_path}"></script>'.format(js_path = to_unicode(js_path)) for js_path in load_js_list])
 
-            html = html[:offset] + js_html + b'\n' + html[offset:]
+            html = html[:offset] + js_html + '\n' + html[offset:]
 
         # 自动加载css
-        load_css_list = self.__get_load_list(b'css')
+        load_css_list = self.__get_load_list('css')
         if load_css_list:
-            offset = html.rfind(b'</head>')
-            css_html = b'\n'.join([b'<link style="stylesheet" href="{css_path}" />'.format(css_path = utf8(css_path)) for css_path in load_css_list])
-            html = html[:offset] + css_html + b'\n' + html[offset:]
+            offset = html.rfind('</head>')
+            css_html = '\n'.join(['<link style="stylesheet" href="{css_path}" />'.format(css_path = to_unicode(css_path)) for css_path in load_css_list])
+            html = html[:offset] + css_html + '\n' + html[offset:]
 
         self.set_header('Content-Type', 'text/html;charset=UTF-8')
         self.push(html)
 
     def __get_load_list(self, _type):
-        assert _type in (b'js', b'css')
+        assert _type in ('js', 'css')
 
         _list = []
-        load_list = getattr(self, b'load_' + _type)()
+        load_list = getattr(self, 'load_' + _type)()
         if not load_list:
             return []
 
@@ -199,7 +199,7 @@ class RequestHandler(object):
 
             if os.path.isdir(_abs_path):
                 _list.extend([_url for _url in self.get_static_urls(_item) \
-                        if _url.endswith(b'.' + _type)]) # 当css时，过滤掉非css的，js时，过滤掉非js的
+                        if _url.endswith('.' + _type)]) # 当css时，过滤掉非css的，js时，过滤掉非js的
             else:
                 _list.append(self.get_static_url(_item))
 
@@ -243,23 +243,33 @@ class RequestHandler(object):
         if not os.path.isfile(attr_path):
             raise OSError('file: %s  not found' % (attr_path, ))
 
+        file_size = os.stat(attr_path).st_size
+
         attr_name = attr_name or os.path.basename(attr_path)
         self.set_header('Content-Type', get_mime_type(attr_path))
         self.set_header('Content-Disposition', 
                 native_str('attachment;filename="%s"') % (native_str(attr_name), ))
-        self.set_header('Content-Length', os.stat(attr_path).st_size)
+        self.set_header('Accept-Ranges', 'bytes')
 
         self.__is_sending_file = True
 
         sleep_secs = speed and (1.0 / (1.0 * speed / BUFFER_SIZE)) or None
 
-
-        self.__send_file(attr_path, sleep_secs)
+        read_range = self.request.get_header('Range', None)
+        start, _ = parse_request_range(read_range) # 由于是断点续传，只考虑start
+        if start > 0:
+            self.set_header('Content-Range', 
+                    'bytes %s-%s/%s' % (start, file_size - 1, file_size))
+            self.set_status(206)
+        self.set_header('Content-Length', file_size - start)
+        
+        self.__send_file(attr_path, sleep_secs, start = start)
 
         self.finish()
 
-    def __send_file(self, attr_path, sleep_secs = None):
+    def __send_file(self, attr_path, sleep_secs = None, start = 0):
         with open(attr_path, 'rb') as fd:
+            fd.seek(start)
             while not self.request.connection.closed:
                 _content = fd.read(BUFFER_SIZE)
                 if not _content:
@@ -450,6 +460,8 @@ class RequestHandler(object):
         self._headers.set_default_header(name, value)
 
     def set_header(self, name, value):
+        if value == None:
+            return
         self._headers[name] = value
 
     def add_header(self, name, value):

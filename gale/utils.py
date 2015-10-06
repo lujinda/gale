@@ -32,6 +32,18 @@ def set_close_exec(fd):
     fcntl.fcntl(fd, fcntl.F_SETFD, flags|fcntl.FD_CLOEXEC)
     # 设置close exec标志，这样在reload时会关闭socket
 
+def parse_request_range(_range):
+    if not _range:
+        return 0, 0
+    if 'bytes=' not in _range:
+        return 0, 0
+    bytes_range = _range.split('bytes=')[-1].strip()
+    start, stop = bytes_range.split('-')
+    start = start and int(start) or 0
+    stop = stop and int(stop) or 0
+
+    return start, stop
+
 def urldecode(params_url):
     if not params_url: # 如果没有东西的话，就返回{}
         return {}
@@ -168,4 +180,5 @@ def single_pattern(obj):
         return _instance
 
     return wrap
+
 

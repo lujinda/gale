@@ -12,7 +12,7 @@ from gale.escape import utf8
 from functools import wraps
 try:
     import cPickle as pickle
-except NotImplementedError:
+except ImportError:
     import pickle
 
 class ICacheManager(object):
@@ -173,7 +173,6 @@ def page(expire = None, on = None):
             if cache and cache['status'] in (200, 304):
                 hds = cache['headers']
                 hdl.set_header('Content-Type', hds['Content-Type'])
-                hdl.set_header('Set-Cookie', hds.get('Set-Cookie'))
                 hdl.set_header('Server', 'Gale Cache')
                 hdl.set_status(200)
                 hdl.push(cache['body'])
@@ -184,7 +183,7 @@ def page(expire = None, on = None):
             hdl.flush()
             if hdl.response_body:  # 只在200和304时有body
                 cache = {'status': hdl._status_code, 
-                        'headers': hdl._headers, 'body': hdl.body}
+                        'headers': hdl._headers, 'body': hdl.response_body}
                 cache_manager.set(_key, cache, expire)
 
             return result
