@@ -361,7 +361,6 @@ class RequestHandler(object):
         return request_version == buffer_md5
 
     def _flush_body(self, response_body):
-        """发送body数据用得，StaticFileHandler需要重写它"""
         connection = self.request.connection
         if self.__is_sending_file:
             if response_body:
