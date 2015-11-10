@@ -1,0 +1,28 @@
+<h1 class="title">数据表结构</h1>
+{% for table in db_tables %}
+{% set table_name, table_columns = table.items()[0] %}
+<table>
+    <caption align="center">{{table_name}}</caption>
+    <thead>
+        <tr>
+            <th width="20%">字段名</th>
+            <th width="20%">字段类型</th>
+            <th width="20%">字段说明</th>
+            <th width="20%">字段属性</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for table_column in table_columns %}
+        <tr>
+            {% for _item in table_column%}
+            <td>{{_item}}</td>
+            {% end %}
+        </tr>
+        {% end %}
+    </tbody>
+</table>
+<div class="description">
+    <strong>sql: </strong>
+    {{generate_sql(table_name, table_columns)}}
+</div>
+{% end %}

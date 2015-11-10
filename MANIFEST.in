@@ -1,0 +1,29 @@
+recursive-include gale/static *
+recursive-include gale/template *
+setup.py
+gale/__init__.py
+gale/autoreload.py
+gale/cache.py
+gale/config.py
+gale/coroutine.py
+gale/e.py
+gale/escape.py
+gale/http.py
+gale/httpconnection.py
+gale/iosocket.py
+gale/ipc.py
+gale/log.py
+gale/py_ver.py
+gale/restapi.py
+gale/server.py
+gale/session.py
+gale/stream.py
+gale/template.py
+gale/utils.py
+gale/web.py
+gale/websocket.py
+gale/wsgi/__init__.py
+gale/wsgi/http.py
+gale/wsgi/stream.py
+gale/wsgi/web.py
+

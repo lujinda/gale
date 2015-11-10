@@ -6,13 +6,15 @@
 # Filename        : gale/http.py
 # Description     : 
 from gale.config import CRLF
-from gale.e import HeaderFormatError, NotSupportHttpVersion
+from gale.e import HeaderFormatError, NotSupportHttpVersion, JSONError
 from gale.utils import urlsplit, urldecode
 from gale.log import gen_log
 from gale import escape
 from gale.escape import native_str
+from gale import cache
 from time import time
 import re
+import json
 
 
 class HTTPRequest():
@@ -44,6 +46,15 @@ class HTTPRequest():
                     files = self.files)
         else:
             self._body_arguments = urldecode(self.body) 
+
+    @cache.cache_self
+    def json(self):
+        try:
+            json_body = json.loads(self.body)
+        except ValueError:
+            raise JSONError
+
+        return json_body
 
     def __get_cookies(self):
         _cookies = {}

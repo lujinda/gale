@@ -551,7 +551,7 @@ class RequestHandler(object):
     def get_status(self):
         return self._status_code
 
-    def raise_error(self, e):
+    def process_raise_error(self, e):
         """当出现错误的时候会被调用"""
         _status_code = getattr(e, 'status_code', 500)
         _status_mess = getattr(e, 'status_mess', None)
@@ -561,6 +561,9 @@ class RequestHandler(object):
     def push_error(self):
         """处理http异常错误"""
         self.send_error(traceback.format_exc())
+
+    def raise_error(self, status_code = 500, status_msg = None):
+        raise HTTPError(status_code, status_msg)
 
     def send_error(self, exc):
         """把异常信息推送出去"""
@@ -722,8 +725,23 @@ class Application(object):
                 r'/(favicon\.ico)', r'/(robots\.txt)'):
                 default_handlers.append((url_re, static_class))
 
+        gale_static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                'static')
+
         if settings.get('debug'):
-            default_handlers.append((r'/gale/debug', DebugHandler))
+            _debug_prefix = settings.get('debug_prefix', '/')
+            _debug_handler_url = os.path.join(_debug_prefix, 'gale/debug')
+            _debug_static_url = os.path.join(_debug_prefix, 'gale/static')
+
+            default_handlers.append((_debug_handler_url, DebugHandler, 
+                {'static_url_path': _debug_static_url}))
+
+            default_handlers.append((r'%s/(.*)' % (_debug_static_url),
+                StaticFileHandler, {'root_path': 
+                    gale_static_path}))
+
+        if 'session_manager'  in settings:
+            self.session_manger = settings['session_manger']
 
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
         self.vhost_handlers = []
@@ -731,8 +749,16 @@ class Application(object):
             self.add_handlers(*_vhost_handler)
 
         # 缺省的一些handler被从vhost_handlers中分离出来, 使缺省的handler应用到所有的host handlers中去
-        self.default_handlers = [(self.__re_compile(_url), _hdl, {}) \
-                for _url, _hdl in default_handlers]
+        self.default_handlers = []
+        for default_handler in default_handlers:
+            if len(default_handler) == 2:
+                _url, _hdl = default_handler
+                self.default_handlers.append([self.__re_compile(_url),
+                    _hdl, {}])
+            elif len(default_handler) == 3:
+                _url, _hdl, _kwargs = default_handler
+                self.default_handlers.append([self.__re_compile(_url),
+                    _hdl, _kwargs])
 
         config_logging(log_settings)
 
@@ -776,7 +802,7 @@ class Application(object):
         try:
             self.__exec_request(handler, request, *url_args, **url_kwargs)
         except Exception as e:
-            handler.raise_error(e) # 把异常传入，并分析，执行错误处理方法(push_error)
+            handler.process_raise_error(e) # 把异常传入，并分析，执行错误处理方法(push_error)
             if handler.get_status() >= 500: # 只有错误代码大于等于500才会打印出异常信息
                 traceback.print_exc()
         finally:
@@ -813,9 +839,14 @@ class Application(object):
             return ErrorHandler(self, request, kwargs = {'status_code': 404}), (), {}
 
 
-    def router(self, url, method = None, base_handler = None, host = '^.*$', kwargs = None, is_login = False, should_login = False):
+    def router(self, url, method = None, base_handler = None, host = '^.*$', kwargs = None, is_login = False, should_login = False, bind_methods = None):
         assert not (is_login and should_login) # 同时是登录类，又需要登录，这怎么可能呢
+        bind_methods = bind_methods or {}
+
         base_handler =  self.__made_base_handler(host, url, base_handler) # 根据url来生成一个类
+
+        for method_name, method_instance in bind_methods.items():
+            setattr(base_handler, method_name, method_instance)
 
         method = method or 'GET'
         kwargs = kwargs or {}
@@ -957,9 +988,14 @@ class StaticFileHandler(RequestHandler):
     def HEAD(self, file_path):
         return self.GET(file_path, is_include_body = False)
 
+    def get_static_root_path(self):
+        static_root_path = self.kwargs.get('root_path') or self.static_path
+
+        return static_root_path
+
     def GET(self, file_path, is_include_body = True):
         self.__is_sending_file = True
-        absolute_path = self.make_absolute_path(self.static_path,
+        absolute_path = self.make_absolute_path(self.get_static_root_path(),
                 file_path)
         if not os.path.exists(absolute_path):
             raise HTTPError(404)
@@ -1213,7 +1249,40 @@ class DebugHandler(RequestHandler):
 
     def GET(self):
         restapi_list = self.restapi.generate_restapi_list()
-        print(restapi_list)
+
+        api_module_tree = list(restapi_list.keys())
+        self.render('doc.html', api_description = '', api_module_tree = api_module_tree,
+                api_docs = restapi_list, 
+                cat_response_params = self._cat_response_params,
+                cat_request_params = self._cat_request_params)
+
+
+
+    def get_static_url(self, file_path):
+        static_url_path = self.kwargs['static_url_path']
+        return os.path.join(static_url_path, file_path)
+
+    def _cat_response_params(self, response_params):
+        if not response_params:
+            return {}
+        public_response_params = self.settings.get('restapi_public_response', {})
+        response_params.update(public_response_params)
+
+        return response_params
+
+    def _cat_request_params(self, request_params):
+        if not request_params:
+            return {}
+        public_request_params = self.settings.get('restapi_public_request', {})
+        request_params.update(public_request_params)
+        return request_params
+
+    def __generate_abspath(self, *p):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                *p)
+
+    def get_template_path(self):
+        return self.__generate_abspath('template')
 
 from gale.server import HTTPServer
 

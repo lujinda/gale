@@ -9,6 +9,9 @@
 class HeaderFormatError(Exception):
     pass
 
+class DocParserError(Exception):
+    pass
+
 class HTTPError(Exception):
     def __init__(self, status_code, status_mess=None):
         self.status_code = status_code
@@ -44,6 +47,9 @@ class WebSocketError(Exception):
     pass
 
 class IPCError(Exception):
+    pass
+
+class JSONError(Exception):
     pass
 
 NotSupportMethod = HTTPError(405)

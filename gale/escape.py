@@ -33,7 +33,7 @@ def param_decode(param):
         elif isinstance(param, bytes):
             return param.decode('utf-8')
         else:
-            return param_decode(str(param))
+            return param
 
     if isinstance(param, str):
         return param.decode('utf-8')
@@ -43,7 +43,6 @@ def param_decode(param):
 
 def to_unicode(param):
     param = param_decode(param)
-    assert isinstance(param, unicode_type)
     return param
 
 def param_encode(param):

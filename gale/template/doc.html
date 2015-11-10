@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+    <head>
+        <meta http-equiv=Content-Type content="text/html;charset=utf-8" />
+        <title>小企鹅api文档自动生成/在线debug插件</title>
+        <script src="{{static_url('js/angular.min.js')}}"></script>
+        <script src="{{static_url('js/jquery.js')}}"></script>
+        <script src="{{static_url('js/debug.js')}}"></script>
+        <script src="{{static_url('bootstrap/js/bootstrap.min.js')}}"></script>
+        <link rel="stylesheet" href="{{static_url('bootstrap/css/bootstrap.min.css')}}"/>
+        <link rel="stylesheet" href="{{static_url('css/debug.css')}}"/>
+    </head>
+    <style>
+    </style>
+    <body>
+        {% include "debug_wrap.html" %}
+        {% if api_description %}
+        <h1 class="title">API说明</h1>
+        <div class="description">
+            {{api_description}}
+        </div>
+        {% end %}
+        <h1 class="title">API目录</h1>
+        {% for api_module in api_module_tree%}
+        <a href="#{{api_module}}" class="api_module_item">{{api_module}}</a>
+        <br/>
+        {% end %}
+        <h1 class="title">API文档</h1>
+        {% for module in api_docs %}
+        {% set module_docs = api_docs[module] %}
+        <div class="module_name" id="{{module}}">{{module}}</div>
+        {% for url, handler, api_doc in module_docs %}
+        <div class="handler_name">{{handler.__name__}}</div>
+        {% for method_doc in api_doc %}
+        <div class="method_doc_wrap">
+            <div class="first_line"><span class="restapi">{{method_doc['restapi']}}</span>  url: <strong class="api_url">{{url}}</strong>  method: <strong class="api_method">{{method_doc['method']}}</strong></div>
+            <button class="btn btn-primary" onclick="show_debug_wrap(this)">在线DEBUG</button>
+            {% if 'warning' in method_doc %}
+            <div class="warning"><strong>注：{{method_doc['warning']}}</strong></div>
+            {% end %}
+            <div class="table_title">请求参数</div>
+            <table>
+                <thead>
+                    <tr><th width="40%">字段名</th><th>字段说明</th></tr>
+                </thead>
+                <tbody>
+                    {% for key, name in method_doc.get('request', {}).items() %}
+                    <tr>
+                        <td class="request_param">{{key}}</td>
+                        <td>{{name}}</td>
+                    </tr>
+                    {% end %}
+                </tbody>
+            </table>
+            <div class="table_title">响应内容</div>
+            <table>
+                <thead>
+                    <tr><th width="40%">字段名</th><th>字段说明</th></tr>
+                </thead>
+                <tbody>
+                    {% for key, name in cat_response_params(method_doc.get('response')).items()%}
+                    <tr>
+                        <td>{{key}}</td>
+                        <td>{{name}}</td>
+                    </tr>
+                    {% end %}
+                </tbody>
+            </table>
+        </div>
+        {% end %}
+        {% end %}
+        {% end %}
+    </body>
+</html>

@@ -37,7 +37,7 @@ class ICacheManager(object):
         raise NotImplementedError
 
 class MemCacheManager(ICacheManager):
-    """基于内存的"""
+    """基于内存的使用lru算法"""
     _cache_dict = OrderedDict() # 这是为了对那些不经常访问的数据做删除，所以要用到有序的dict
     _expire_dict = OrderedDict()  # 存过期时间的map
     def __init__(self, expire = 7200, max_size = 100):

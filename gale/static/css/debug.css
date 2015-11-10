@@ -1,0 +1,113 @@
+body{
+    width: 800px;
+    margin:auto;
+}
+.title{
+    border-bottom: 2px solid #ccc;
+    padding-bottom: 4px;
+}
+.module_name{
+    border-bottom: 2px solid #eee;
+    padding-bottom: 4px;
+    color: #000;
+    font-size: 18px;
+    display: block;
+    text-decoration:none;
+    border-left: 4px solid #fff;
+    padding-left: 6px;
+    font-weight: bold;
+    margin-top: 30px;
+}
+.restapi{
+    color: #09c;
+}
+.module_name:hover{
+    border-left: 4px solid #eee;
+}
+.handler_name{
+    margin: 10px 0px;
+}
+.api_module_item{
+    color: #09c;
+    font-size: 18px;
+}
+.method_doc_wrap{
+    background-color: #f6f6f6;
+    padding: 10px;
+}
+.method_doc_wrap strong{
+    color: red;
+}
+.method_doc_wrap .first_line{
+    border-bottom: 2px solid #fff;
+    padding-bottom: 4px;
+}
+.table_title{
+    margin: 10px 6px;
+    font-weight:bold;
+}
+.warning{
+    font-size: 14px;
+    margin-top: 10px;
+}
+table{
+    border: 1px solid #ddd;
+    width:100%;
+    margin: 10px;
+    font-size: 14px;
+    border-spacing:0px;
+    border-collapse: collapse;
+    box-sizing: border-box;
+    line-height: 140%;
+}
+table td{
+    border: 1px solid #ddd;
+    padding: 4px;
+}
+table th{
+    text-align:left;
+    border: 1px solid #ddd;
+    padding: 4px;
+}
+.description{
+    background-color: #f8f8f8;
+    padding: 10px;
+}
+caption{
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 140%;
+    text-align: left;
+}
+#debug_wrap .modal-dialog{
+    width: 900px;
+}
+.left, .right{
+    width: 48%;
+    display: inline-block;
+    vertical-align: top;
+}
+.right textarea{
+    width: 100%;
+    padding: 2px;
+    min-height: 300px;
+}
+.request_param_name{
+    width: 35%;
+    border-right: 4px solid #eee;
+    display: inline-block;
+}
+
+.request_param{
+    margin: 4px 2px;
+}
+.request_param_value{
+    width: 60%;
+    margin-left: 10px;
+    display: inline-block;
+    vertical-align: top;
+}
+.glyphicon-plus{
+    cursor: pointer;
+}
+

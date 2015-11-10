@@ -1,0 +1,39 @@
+<div class="modal fade" id="debug_wrap" tabindex="-1" role="dialog" ng-app="tor_debug" ng-controller="debug_controller">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">调试: //api_doc//</h4>
+            </div>
+            <div class="modal-body">
+                <div class="left">
+                    <form ng-submit="debug_api()" method='POST'>
+                    <label>URL: <input disabled type="text" class="form-control" ng-model="request_form.url"></label>
+                    <label>方法: <input disabled type="text" class="form-control" ng-model="request_form.method"></label>
+                    <div></div>
+                    <label>自定义headers(一行一条):</label>
+                    <textarea class="form-control" ng-model="custom_headers"></textarea>
+                    <div>
+                        <label>request参数:</label>
+                    </div>
+                    <div class="request_param" ng-repeat="request_param_name in request_params">
+                        <span class="request_param_name">//request_param_name//</span>
+                        <span class="request_param_value">
+                            <input ng-repeat="_params in all_request_params[request_param_name]" ng-model="_params[request_param_name]"/>
+                            <span ng-click="add_param_value(request_param_name)" class="glyphicon glyphicon-plus"></span>
+                        </span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">DEBUG</button>
+                    <select ng-model="request_content_type">
+                        <option value="json" selected>json</option>
+                        <option value="urlencoded">urlencoded</option>
+                    </select>
+                    </form>
+                </div>
+                <div class="right" ng-show="response_string">
+                    <textarea readonly ng-model="response_string"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -5,13 +5,14 @@
 # Last modified : 2015-06-09 10:04:55
 # Filename      : setup.py
 # Description   : 
-from distutils.core import setup
+from setuptools import setup
 from gale import version
 setup(
         name = 'gale_web',
         version = version,
         author = 'tuxpy',
         url = 'https://github.com/lujinda/gale',
+        include_package_data = True,
         packages = [
             'gale',
             'gale.wsgi',

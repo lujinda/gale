@@ -8,6 +8,8 @@
 from gale.web import app_run, router, RequestHandler, limit_referrer, HTTPError
 from gale.cache import MemCacheManager, cache,  page
 
+API_MODULE_DOC = '测试用'
+
 class CacheHandler(RequestHandler):
     @cache()
     def add(self, a, b):
@@ -25,9 +27,13 @@ class CacheHandler(RequestHandler):
 
 @router(url = '/', method = 'GET')
 def index(self):
-    raise HTTPError(500)
+    self.push('ok')
 
-@router(url = '/test', method='GET', base_handler = CacheHandler)
+def load_js(self):
+    return 'js'
+
+@router(url = '/test', method='GET', 
+        bind_methods = {'load_js': load_js})
 def test(self):
     print('共有 %s 个进程 ' % (self.server_settings['processes']))
     self.render('t.html', l = [1, 2, 3])
@@ -46,7 +52,8 @@ def down(self):
 def login(self):
     """
     restapi: 查询某个用户是否登录
-    username|用户名
+    request:
+        username:用户名
     """ 
     print(self.request.uri)
     print(self.request.all_arguments)
@@ -55,8 +62,9 @@ def login(self):
 def login_post(self):
     """
     restapi: 用户登录
-    username | 用户
-    password | 密码
+    request:
+        username: 用户
+        password: 密码
     """
     self.push(self.body.username)
 
