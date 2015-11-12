@@ -560,6 +560,8 @@ class RequestHandler(object):
 
     def push_error(self):
         """处理http异常错误"""
+        if self.is_finished:
+            return
         self.send_error(traceback.format_exc())
 
     def raise_error(self, status_code = 500, status_msg = None):

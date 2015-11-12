@@ -3,4 +3,4 @@
 *.swp
 /build/*
 /dist/*
-
+gale_web.egg-info
