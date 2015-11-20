@@ -17,6 +17,7 @@ setup(
             'gale',
             'gale.wsgi',
             ],
+        install_requires = ['gevent'],
         description = 'a web framework like tornado',
         )
 
