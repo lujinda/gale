@@ -52,5 +52,12 @@ class IPCError(Exception):
 class JSONError(Exception):
     pass
 
+class NotSupportStrategy(Exception):
+    pass
+
+class WorkerOffline(Exception):
+    pass
+
+
 NotSupportMethod = HTTPError(405)
 

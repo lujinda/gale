@@ -178,6 +178,9 @@ class HTTPHeaders(dict):
     def __setitem__(self, name, value):
         self._headers_map_list[name] = [value]
 
+    def clear(self):
+        self._headers_map_list.clear()
+
     def __getitem__(self, name):
         if name in self._headers_map_list:
             return self._headers_map_list[name][0]

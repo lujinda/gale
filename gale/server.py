@@ -39,13 +39,16 @@ class HTTPServer(object):
     """
         http server
     """
-    def __init__(self, callback, host = '0.0.0.0', port = 8080, timeout= 15, max_client = 1000, autoreload = True):
+    def __init__(self, callback, host = '0.0.0.0', port = 8080, timeout= 15, max_client = 1000, autoreload = True,
+            load_worker = None):
         assert callable(callback) # callback必须是可调用的
         self.host = host
         self.port = port
         self._callback = callback # 表示回调函数
         self.autoreload = autoreload
         self.run_pool = []
+        if load_worker: # 如果有load worker则需要将它连接到主控制器中
+            load_worker.run()
         self.settings = ServerSettings(processes = 0, timeout = timeout,
                         max_client = max_client)
 

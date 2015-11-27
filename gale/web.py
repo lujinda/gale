@@ -93,7 +93,6 @@ class RequestHandler(object):
         """可以在这里设置一些默认的headers信息(使用set_header[s])"""
         pass
 
-
     def ALL(self, *args, **kwargs):
         pass
 
@@ -463,6 +462,9 @@ class RequestHandler(object):
             return
         self._headers[name] = value
 
+    def clear_headers(self):
+        self._headers.clear()
+
     def add_header(self, name, value):
         self._headers.add(name, value)
 
@@ -705,6 +707,7 @@ class ErrorHandler(RequestHandler):
         status_code = self.kwargs.get('status_code', 500)
         raise HTTPError(status_code)
 
+@single_pattern
 class Application(object):
     _buffer_stringio = s_io()
     _template_cache = {}

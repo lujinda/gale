@@ -7,6 +7,7 @@
 # Description   : 
 from gale.web import app_run, router, RequestHandler, limit_referrer, HTTPError
 from gale.cache import MemCacheManager, cache,  page
+from gale.balance import LoadWorker
 
 API_MODULE_DOC = '测试用'
 
@@ -27,6 +28,8 @@ class CacheHandler(RequestHandler):
 
 @router(url = '/', method = 'GET')
 def index(self):
+    self.set_cookie('a1', '1')
+    self.set_cookie('a2', '2')
     self.push('ok')
 
 def load_js(self):
@@ -69,5 +72,16 @@ def login_post(self):
     self.push(self.body.username)
 
 
-app_run(settings = {'debug': True, 'gzip': False, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = 5000)
+def get_port():
+    import sys
+    if len(sys.argv) < 2:
+        return 5000
+
+    if sys.argv[1].isdigit():
+        return int(sys.argv[1])
+
+    return 5000
+
+load_worker = LoadWorker(target_host = '127.0.0.1', password = '123')
+app_run(settings = {'debug': True, 'gzip': False, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = get_port(), server_settings = {'load_worker': load_worker})
 
