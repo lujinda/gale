@@ -175,7 +175,7 @@ class RequestHandler(object):
         load_css_list = self.__get_load_list('css')
         if load_css_list:
             offset = html.rfind('</head>')
-            css_html = '\n'.join(['<link style="stylesheet" href="{css_path}" />'.format(css_path = to_unicode(css_path)) for css_path in load_css_list])
+            css_html = '\n'.join(['<link rel="stylesheet" href="{css_path}" />'.format(css_path = to_unicode(css_path)) for css_path in load_css_list])
             html = html[:offset] + css_html + '\n' + html[offset:]
 
         self.set_header('Content-Type', 'text/html;charset=UTF-8')
