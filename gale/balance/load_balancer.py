@@ -38,12 +38,16 @@ _BADGATEWAY_HTML = """
 </html>
 """
 
+class BalanceHandler(web.RequestHandler):
+    pass
+
 class LoadBalancer(object):
     def __init__(self, password, host = '0.0.0.0', port = 1201, strategy = 'auto', 
             upstream_settings = None):
         """
         strategy表示负载策略
-        upstream_settings可以提供上流服务器的参数,如指定ip地址等
+        upstream_settings: 关于上游服务器的设置
+            weight: 权重参数
         """
         if strategy not in ('auto', 'ip', 'round', 'weight'):
             raise gale.e.NotSupportStrategy('not support %s strategy' % (strategy))
@@ -67,18 +71,23 @@ class LoadBalancer(object):
             self.pass_request(handler)
         finally:
             handler.finish()
+            self.strategy_manager.flush()
 
     def pass_request(self, handler):
+        retry_counter = 0
+        upstreams_total = self.strategy_manager.upstreams_total
+
         while True:
             try:
                 upstream = self.strategy_manager.get_best_upstream()
-                if not upstream:
+                if (not upstream) or retry_counter >= upstreams_total:
                     handler.set_status(502)
                     handler.set_header('Content-Type', 'text/html;charset=UTF-8')
                     handler.push(_BADGATEWAY_HTML)
                     return
                 response = proxy_request(handler.request, upstream)
             except gale.e.WorkerOffline:
+                retry_counter += 1
                 self.strategy_manager.add_invalid_upstream(upstream)
                 continue
             else:

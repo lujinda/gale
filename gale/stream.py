@@ -28,6 +28,8 @@ class StreamServer(object):
                 socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, 
                 socket.SO_REUSEADDR, reuse_add)
+        self._socket.setsockopt(socket.IPPROTO_TCP,
+                socket.TCP_NODELAY, True)
 
         set_close_exec(self._socket.fileno())
 

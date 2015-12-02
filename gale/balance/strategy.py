@@ -36,6 +36,7 @@ def _rand_upstream_by_weight(weight_data):
 class _IStrategyManager(object):
     invalid_upstreams = {}
     def __init__(self, upstream_settings):
+        self._upstream_reset_counter = 0
         self.upstream_settings = upstream_settings
         self.upstreams_weight = upstream_settings.get('weight', {})
 
@@ -46,9 +47,23 @@ class _IStrategyManager(object):
     def remove_invalid_upstream(self, upstream):
         self.upstreams_weight[upstream] = self.invalid_upstreams.pop(upstream)
 
+    def reset_upstreams_weight(self):
+        if self._upstream_reset_counter >= 1:
+            return
+        self.flush_invalid_upstream()
+        self._upstream_reset_counter += 1
+
+    def flush_invalid_upstream(self):
+        self.upstreams_weight.update(self.invalid_upstreams)
+        self.invalid_upstreams.clear()
+
+
     def get_best_upstream(self):
         raise NotImplementedError
 
+    def flush(self):
+        """each request has been processed after the call"""
+        self._upstream_reset_counter = 0
 
 class AutoStrategyManager(_IStrategyManager):
     pass
@@ -61,5 +76,14 @@ class RoundStrategyManager(_IStrategyManager):
 
 class WeightStrategyManager(_IStrategyManager):
     def get_best_upstream(self):
+        valid_upstreams_total = len(self.invalid_upstreams)
+        if (valid_upstreams_total  / self.upstreams_total) < 0.6:
+            # when less then 60 percent of valid upstreams, the need to flush invalid_upstreams
+            self.reset_upstreams_weight()
+
         return _rand_upstream_by_weight(self.upstreams_weight)
+
+    @property
+    def upstreams_total(self):
+        return len(self.upstreams_weight) + len(self.invalid_upstreams)
 
