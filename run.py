@@ -28,9 +28,7 @@ class CacheHandler(RequestHandler):
 
 @router(url = '/', method = 'GET')
 def index(self):
-    self.set_cookie('a1', '1')
-    self.set_cookie('a2', '2')
-    self.push('ok')
+    self.res_body + 'ok'
 
 def load_js(self):
     return 'js'

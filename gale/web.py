@@ -52,8 +52,22 @@ re_signed_cookie = re.compile(r'^\|\d+')
 
 BUFFER_SIZE = 4096 * 10
 
+class ResponseBody(object):
+    """This is RequestHandler.push syntactic sugar"""
+    def __set__(self, handler, value):
+        self.handler._push_buffer = []
+        self.handler.push(value)
+
+    def __get__(self, handler, handler_class):
+        self.handler = handler
+        return self
+
+    def __add__(self, value):
+        self.handler.push(value)
+
 class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
+    res_body = ResponseBody()
     def __init__(self, application, request, kwargs = None):
         self.kwargs = kwargs or {}
         self.application = application
