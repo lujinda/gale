@@ -194,13 +194,15 @@ class WebSocketHandler(RequestHandler):
             return 'upgrade only support websocket'
 
     def _check_websocket_version(self):
-        if not self.__websocket_version:
+        _version = self.__websocket_version
+        if (not _version) or (_version != 13):
+            self.set_header('Sec-WebSocket-Version', '13')
             return 'currently support version == 13'
 
     def _check_websocket_key(self):
         if not self.__websocket_key:
             return 'missing websocket key'
-    
+
     def origin_is_accept(self):
         origin = utf8(self.request.get_header('Origin', ''))
         if not origin:
