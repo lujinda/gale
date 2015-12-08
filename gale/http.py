@@ -41,11 +41,14 @@ class HTTPRequest():
     def _parse_body(self):
         content_type = self.headers.get(u'Content-Type', '')
 
-        if content_type.startswith('multipart/form-data'):
-            parse_multipart_form_data(content_type, self.body, args = self._body_arguments,
-                    files = self.files)
-        else:
-            self._body_arguments = urldecode(self.body) 
+        try:
+            if content_type.startswith('multipart/form-data'):
+                parse_multipart_form_data(content_type, self.body, args = self._body_arguments,
+                        files = self.files)
+            else:
+                self._body_arguments = urldecode(self.body) 
+        except Exception:
+            self._body_arguments = {}
 
     @cache.cache_self
     def json(self):
