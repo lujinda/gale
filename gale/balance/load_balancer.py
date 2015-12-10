@@ -61,8 +61,11 @@ class LoadBalancer(object):
         self.strategy_manager = getattr(_strategy, 
                 "{strategy}StrategyManager".format(strategy = strategy.title()))(upstream_settings)
 
+        t = threading.Thread(target = self.run)
+        t.start()
+
     def run(self):
-        print('strategy manager is ', self.strategy_manager)
+        pass
 
     def __call__(self, request, *args, **kwargs):
         handler = web.RequestHandler(web.Application(settings = {'gzip': False}),
@@ -79,7 +82,8 @@ class LoadBalancer(object):
 
         while True:
             try:
-                upstream = self.strategy_manager.get_best_upstream()
+                upstream = self.strategy_manager.get_best_upstream(handler)
+                self.strategy_manager.sort_upstreams_weight()
                 if (not upstream) or retry_counter >= upstreams_total:
                     handler.set_status(502)
                     handler.set_header('Content-Type', 'text/html;charset=UTF-8')

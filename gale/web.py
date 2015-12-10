@@ -973,7 +973,7 @@ def auth_401(method):
         if self.current_user:
             return method(self, *args, **kwargs)
         else:
-            self.set_header('WWW-authenticate', "Basic realm='Please input'")
+            self.set_header('WWW-Authenticate', "Basic realm='Please input'")
             raise HTTPError(401)
 
     return wrap

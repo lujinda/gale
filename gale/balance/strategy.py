@@ -7,7 +7,9 @@
 # Description   : from __future__ import print_function, unicode_literals
 from __future__ import print_function, unicode_literals
 import random
-
+import struct
+import socket
+from gale import escape
 
 def _rand_upstream_by_weight(weight_data):
     if not weight_data:
@@ -61,7 +63,7 @@ class _IStrategyManager(object):
         self.invalid_upstreams.clear()
 
 
-    def get_best_upstream(self):
+    def get_best_upstream(self, handler):
         raise NotImplementedError
 
     def flush(self):
@@ -79,16 +81,23 @@ class _IStrategyManager(object):
     def upstreams_total(self):
         return len(self.upstreams_weight) + len(self.invalid_upstreams)
 
-
 class AutoStrategyManager(_IStrategyManager):
     pass
 
 class IpStrategyManager(_IStrategyManager):
-    pass
+    def init(self):
+        self.upstreams_weight = {}.fromkeys(self.upstream_settings.get('hosts', []), 100)
+
+    def get_best_upstream(self, handler):
+        client_ip = handler.client_ip
+        ip_long = struct.unpack(b'!L', escape.utf8(socket.inet_aton(client_ip)))[0]
+        valid_hosts = self.upstreams_weight.keys()
+        ip_hash_index = ip_long % len(valid_hosts)
+        print(ip_long, ip_hash_index)
+        return valid_hosts[ip_hash_index]
 
 class RoundStrategyManager(_IStrategyManager):
-    def get_best_upstream(self):
-        self.sort_upstreams_weight()
+    def get_best_upstream(self, hander):
         __hosts = sorted(self.upstreams_weight.keys())
         if not __hosts:
             return
@@ -106,12 +115,11 @@ class RoundStrategyManager(_IStrategyManager):
             self.__used_hosts.clear()
 
     def init(self):
-        self.upstreams_weight = {}.fromkeys(self.upstream_settings.get('hosts'), 100)
+        self.upstreams_weight = {}.fromkeys(self.upstream_settings.get('hosts', []), 100)
         self.__used_hosts = set()
 
 class WeightStrategyManager(_IStrategyManager):
-    def get_best_upstream(self):
-        self.sort_upstreams_weight()
+    def get_best_upstream(self, handler):
         return _rand_upstream_by_weight(self.upstreams_weight)
 
     def init(self):

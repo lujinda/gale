@@ -13,6 +13,7 @@ try:
 except ImportError:
     from http import client as httplib
 import gale
+import gevent
 import gevent.monkey
 
 __all__ = ['proxy_request']
