@@ -8,12 +8,13 @@
 from __future__ import print_function, unicode_literals
 
 import gevent
+from gevent import socket
 import threading
 import argparse
 
 import gale
-from gale import web
-from . import strategy as _strategy
+from gale import (web, utils)
+from . import strategy as strategy_module
 from .request import proxy_request
 
 __all__ = ['LoadBalancer']
@@ -41,8 +42,47 @@ _BADGATEWAY_HTML = """
 class BalanceHandler(web.RequestHandler):
     pass
 
+class WorkerCommandHandler(object):
+    def __init__(self, strategy_manager):
+        self.strategy_manager = strategy_manager
+
+    def _execute(self, request):
+        command = request['command']
+        params = request['params']
+
+        method = getattr(self, command, None)
+        method(params)
+
+    def login(self, params):
+        print(params)
+
+class BalanceServer(object):
+    def __init__(self, listen_add, strategy_manager):
+        self._socket = utils.get_gale_socket()
+
+        self._socket.bind(listen_add)
+        self._socket.listen(1024)
+
+        self.strategy_manager = strategy_manager
+
+    def serve_forver(self):
+        while True:
+            worker, addr = self._socket.accept()
+            monitor_stream = MonitorStream(worker)
+            try:
+                gevent.spawn(self.start_monitor_worker(monitor_stream)) # Monitor the user to modify its own weight request
+            except Exception as ex:
+                print('get a exception in %s, error: %s' %(self.serve_forver, ex))
+                pass
+
+    def start_monitor_worker(self, monitor_stream):
+        worker_command_handler = WorkerCommandHandler(self.strategy_manager)
+        for request in monitor_stream.recv_request():
+            print(request)
+            worker_command_handler._execute(request)
+
 class LoadBalancer(object):
-    def __init__(self, password, host = '0.0.0.0', port = 1201, strategy = 'auto', 
+    def __init__(self, password, host = '0.0.0.0', port = 1201, strategy = 'auto',
             upstream_settings = None):
         """
         strategy表示负载策略
@@ -53,19 +93,21 @@ class LoadBalancer(object):
             raise gale.e.NotSupportStrategy('not support %s strategy' % (strategy))
 
         args = get_args_from_command()
-        self.password = args.password or password
+        _password = args.password or password
         self.host = args.host or host
         self.port = args.port or port
 
         strategy = args.strategy or strategy
-        self.strategy_manager = getattr(_strategy, 
-                "{strategy}StrategyManager".format(strategy = strategy.title()))(upstream_settings)
+        self.strategy_manager = getattr(strategy_module, 
+                "{strategy}StrategyManager".format(strategy = strategy.title()))(password, upstream_settings)
 
         t = threading.Thread(target = self.run)
         t.start()
 
     def run(self):
-        pass
+        balance_server = BalanceServer((self.host, self.port),
+                self.strategy_manager)
+        balance_server.serve_forver()
 
     def __call__(self, request, *args, **kwargs):
         handler = web.RequestHandler(web.Application(settings = {'gzip': False}),
@@ -82,8 +124,8 @@ class LoadBalancer(object):
 
         while True:
             try:
-                upstream = self.strategy_manager.get_best_upstream(handler)
                 self.strategy_manager.sort_upstreams_weight()
+                upstream = self.strategy_manager.get_best_upstream(handler)
                 if (not upstream) or retry_counter >= upstreams_total:
                     handler.set_status(502)
                     handler.set_header('Content-Type', 'text/html;charset=UTF-8')

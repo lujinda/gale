@@ -11,10 +11,10 @@ from gale.balance import LoadBalancer
 from gale import server
 from gale.web import Application
 
-load_balancer = LoadBalancer(strategy = 'ip', password = '123', 
+load_balancer = LoadBalancer(strategy = 'round', password = '123', 
         upstream_settings = {
             'hosts': ['127.0.0.1:5000', '127.0.0.1:5001'],
             })
 server = server.HTTPServer(load_balancer)
-server.run(processes = 1)
+server.run(processes = 0)
 

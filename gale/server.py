@@ -33,7 +33,7 @@ class ServerSettings(dict):
         try:
              return self[name]
         except KeyError:
-             raise 
+             raise
 
 class HTTPServer(object):
     """

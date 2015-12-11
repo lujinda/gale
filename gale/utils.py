@@ -23,7 +23,7 @@ import mimetypes
 import uuid
 import fcntl
 import gevent
-from gevent import Greenlet
+from gevent import (Greenlet, socket)
 from functools import wraps
 import sys
 
@@ -31,6 +31,18 @@ def set_close_exec(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFD)
     fcntl.fcntl(fd, fcntl.F_SETFD, flags|fcntl.FD_CLOEXEC)
     # 设置close exec标志，这样在reload时会关闭socket
+
+def get_gale_socket(raw_socket = None):
+    _socket = raw_socket or socket.socket(socket.AF_INET,
+            socket.SOCK_STREAM)
+    _socket.setsockopt(socket.SOL_SOCKET,
+            socket.SO_REUSEADDR, 1)
+    _socket.setsockopt(socket.IPPROTO_TCP,
+            socket.TCP_NODELAY, 1)
+
+    set_close_exec(_socket.fileno())
+
+    return _socket
 
 def parse_request_range(_range):
     if not _range:

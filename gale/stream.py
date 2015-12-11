@@ -6,11 +6,10 @@
 # Filename      : stream.py
 # Description   : 
 from __future__ import print_function
-from gevent import socket
 import gevent
 from gale.httpconnection import HTTPConnection 
 from gale.autoreload import check_files
-from gale.utils import set_close_exec
+from gale import utils
 import sys
 import time
 import os
@@ -24,14 +23,8 @@ def monitor_files():
 
 class StreamServer(object):
     def __init__(self, listen_add, callback, settings, reuse_add = True, autoreload = False):
-        self._socket = socket.socket(socket.AF_INET, 
-                socket.SOCK_STREAM)
-        self._socket.setsockopt(socket.SOL_SOCKET, 
-                socket.SO_REUSEADDR, reuse_add)
-        self._socket.setsockopt(socket.IPPROTO_TCP,
-                socket.TCP_NODELAY, True)
+        self._socket = utils.get_gale_socket()
 
-        set_close_exec(self._socket.fileno())
 
         self._socket.bind(listen_add)
         self._socket.listen(settings.max_client)
@@ -53,10 +46,8 @@ class StreamServer(object):
 
         while True:
             s, addr = self._socket.accept()
+            s = utils.get_gale_socket(s)
             try:
-                set_close_exec(s.fileno())
-                s.setsockopt(socket.SOL_SOCKET, 
-                    socket.SO_REUSEADDR, 1)
                 s.settimeout(self.timeout) # 设置客户端的超时时间
                 connection = HTTPConnection(s)
                 gevent.spawn(connection.get_request, self._callback,

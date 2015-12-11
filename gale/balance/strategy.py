@@ -37,9 +37,10 @@ def _rand_upstream_by_weight(weight_data):
 
 class _IStrategyManager(object):
     invalid_upstreams = {}
-    def __init__(self, upstream_settings):
+    def __init__(self, connect_password, upstream_settings):
         self._upstream_reset_counter = 0
         self.upstream_settings = upstream_settings
+        self.connect_password = connect_password
         self.init()
 
     def init(self):
@@ -48,6 +49,9 @@ class _IStrategyManager(object):
     def add_invalid_upstream(self, upstream):
         weight = self.upstreams_weight.pop(upstream)
         self.invalid_upstreams[upstream] = weight
+
+    def add_valid_upstream(self, upstream):
+        self.upstream_settings
 
     def remove_invalid_upstream(self, upstream):
         self.upstreams_weight[upstream] = self.invalid_upstreams.pop(upstream)
@@ -72,7 +76,7 @@ class _IStrategyManager(object):
 
     def sort_upstreams_weight(self):
         """according to the conditions to decide whether you want to reset upstreams weight"""
-        valid_upstreams_total = len(self.invalid_upstreams)
+        valid_upstreams_total = self.upstreams_total - len(self.invalid_upstreams)
         if (valid_upstreams_total  / self.upstreams_total) < 0.6:
             # when less then 60 percent of valid upstreams, the need to flush invalid_upstreams
             self.reset_upstreams_weight()
@@ -91,9 +95,10 @@ class IpStrategyManager(_IStrategyManager):
     def get_best_upstream(self, handler):
         client_ip = handler.client_ip
         ip_long = struct.unpack(b'!L', escape.utf8(socket.inet_aton(client_ip)))[0]
-        valid_hosts = self.upstreams_weight.keys()
+        valid_hosts = self.upstreams_weight.keys() # Monitor the user to modify its own weight request
+        if not valid_hosts:
+            return
         ip_hash_index = ip_long % len(valid_hosts)
-        print(ip_long, ip_hash_index)
         return valid_hosts[ip_hash_index]
 
 class RoundStrategyManager(_IStrategyManager):

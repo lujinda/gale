@@ -17,7 +17,7 @@ setup(
             'gale',
             'gale.wsgi',
             ],
-        install_requires = ['gevent'],
+        install_requires = ['gevent', 'msgpack'],
         description = 'a web framework like tornado',
         )
 
