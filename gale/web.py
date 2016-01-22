@@ -252,7 +252,7 @@ class RequestHandler(object):
         t = _template_loader.load(string)
         return t.generate(**kwargs)
 
-    def send_file(self, attr_path, attr_name = None, charset = 'utf-8', speed = None):
+    def send_file(self, attr_path, attr_name = None, charset = 'utf-8', speed = None, is_attr = True):
         """speed: 下载速度, 单位是字节B"""
         if bool(self._push_buffer):
             raise Exception("Can't redirect after push")
@@ -263,9 +263,10 @@ class RequestHandler(object):
 
         attr_name = attr_name or os.path.basename(attr_path)
         self.set_header('Content-Type', get_mime_type(attr_path))
-        self.set_header('Content-Disposition', 
-                native_str('attachment;filename="%s"') % (native_str(attr_name), ))
-        self.set_header('Accept-Ranges', 'bytes')
+        if is_attr:
+            self.set_header('Content-Disposition', 
+                    native_str('attachment;filename="%s"') % (native_str(attr_name), ))
+            self.set_header('Accept-Ranges', 'bytes')
 
         self.__is_sending_file = True
 
@@ -816,7 +817,8 @@ class FileHandler(RequestHandler):
             self.raise_error(404)
 
         elif item.isfile:
-            self.send_file(item.abspath)
+            self.set_header('Content-Type', get_mime_type(item.abspath))
+            self.send_file(item.abspath, is_attr = self.query.attr == '1')
         else:
             self.render('files.html', items = self.ls(item.dirname), 
                     relative_path = relative_path, parent = item.dirname)

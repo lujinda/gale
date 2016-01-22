@@ -43,7 +43,7 @@
                 {% end %}
                 {% for item in items %}
                 <tr>
-                    <td><a href="{{item.pretty_name}}">{{item.pretty_name}}</a></td>
+                    <td><a {{ item.isdir == False and 'target="_blank"' or ''}} href="{{item.pretty_name}}">{{item.pretty_name}}</a></td>
                     <td>{{item.pretty_size}} / {{item.raw_size}}</td>
                     <td>{{item.ctime}}</td>
                     <td>{{item.mtime}}</td>
