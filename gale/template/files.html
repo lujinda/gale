@@ -1,0 +1,56 @@
+<!doctype htnl>
+<html>
+    <head>
+        <meta http-equiv='Content-Type' content="text/html;charset=utf-8" />
+        <title>{{relative_path}}</title>
+        <style>
+            body{
+                padding: 1em;
+            }
+            h2{
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 0.6em;
+            }
+            table{
+                width: 100%;
+            }
+            thead th{
+                text-align: left;
+            }
+            tbody a{
+                text-decoration: none;
+                font-size: 1.1em;
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>{{relative_path}}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th width="20%">名字</th>
+                    <th>大小</th>
+                    <th>创建时间</th>
+                    <th>修改时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if relative_path != '/' %}
+                <tr>
+                    <td><a href='../'>../</a>
+                </tr>
+                {% end %}
+                {% for item in items %}
+                <tr>
+                    <td><a href="{{item.pretty_name}}">{{item.pretty_name}}</a></td>
+                    <td>{{item.pretty_size}} / {{item.raw_size}}</td>
+                    <td>{{item.ctime}}</td>
+                    <td>{{item.mtime}}</td>
+                </tr>
+                {% end %}
+            </tbody>
+        </table>
+    </body>
+</html>
+

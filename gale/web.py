@@ -137,6 +137,10 @@ class RequestHandler(object):
     def current_user(self):
         return self.get_current_user()
 
+    def _generate_abspath(self, *p):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                *p)
+
     def get_current_user(self):
         """如果需要实现用户验证，请在此完成，登录成功返回一个非False的值就行了，如果返回的是False，则表示验证失败，会被转到登录url上。"""
         return None
@@ -716,6 +720,134 @@ class RequestHandler(object):
     def on_connect_close(self):
         pass
 
+class _FileItem(object):
+    def __init__(self, root, relative_path):
+        self.root = root
+        self.relative_path = relative_path
+
+    @property
+    def pretty_name(self):
+        basename = self.relative_path
+        if self.isdir:
+            return basename + '/'
+        else:
+            return basename
+
+    @property
+    def dirname(self):
+        return os.path.dirname(self.abspath)
+
+    @property
+    def isfile(self):
+        return os.path.isfile(self.abspath)
+
+    @property
+    def isdir(self):
+        return os.path.isdir(self.abspath)
+
+    @property
+    def name(self):
+        return os.path.basename(self.abspath)
+
+    @property
+    def ishidden(self):
+        basename = os.path.basename(self.abspath)
+        return basename[0] == '.'
+
+    def __repr__(self):
+        return self.abspath
+
+    @property
+    def raw_size(self):
+        return self.stat.st_size
+
+    @property
+    def pretty_size(self):
+        raw_size = self.raw_size
+        pretty_size = raw_size
+
+        unit = 'B'
+        for _unit in ['KB', 'MB', 'GB']:
+            pretty_size /= 1024.0
+            if pretty_size <= 1000:
+                unit = _unit
+                break
+
+        return '%.2f %s' % (pretty_size,
+                unit)
+
+    @property
+    def stat(self):
+        return os.stat(self.abspath)
+
+    @property
+    def ctime(self):
+        return time.ctime(self.stat.st_ctime)
+
+    @property
+    def mtime(self):
+        return time.ctime(self.stat.st_mtime)
+
+    @property
+    def isexist(self):
+        return os.path.exists(self.abspath)
+
+    @property
+    def abspath(self):
+        if self.relative_path[0] == '/':
+            path = self.relative_path[1:]
+        else:
+            path = self.relative_path
+
+        abspath = os.path.join(self.root, path)
+        return abspath
+
+class FileHandler(RequestHandler):
+    """
+    列出所有本地所有文件及目录
+    """
+
+    def GET(self, relative_path = '/'):
+        if relative_path.startswith('./'):
+            self.raise_error(403)
+
+        item = _FileItem(self.root, relative_path)
+        if not item.isexist:
+            self.raise_error(404)
+
+        elif item.isfile:
+            self.send_file(item.abspath)
+        else:
+            self.render('files.html', items = self.ls(item.dirname), 
+                    relative_path = relative_path, parent = item.dirname)
+
+    def allow_show(self, item):
+
+        allow_hiddent = self.kwargs.get('hiddent', False)
+        if (not allow_hiddent) and item.ishidden:
+            return False
+
+        return True
+
+    def ls(self, dir_path):
+        items = []
+
+        for item_name in os.listdir(dir_path):
+            new_item = _FileItem(dir_path, item_name)
+            if not self.allow_show(new_item):
+                continue
+
+            items.append(new_item)
+
+        return items
+
+    @property
+    def root(self):
+        return self.kwargs.get('root', '/')
+
+    def get_template_path(self):
+        return self._generate_abspath('template')
+
 class ErrorHandler(RequestHandler):
     def ALL(self):
         status_code = self.kwargs.get('status_code', 500)
@@ -858,17 +990,23 @@ class Application(object):
             return ErrorHandler(self, request, kwargs = {'status_code': 404}), (), {}
 
 
-    def router(self, url, method = None, base_handler = None, host = '^.*$', kwargs = None, is_login = False, should_login = False, bind_methods = None):
+    def router(self, url, method = None, base_handler = None, host = '^.*$', kwargs = None, is_login = False, should_login = False, bind_methods = None, handler = None):
         assert not (is_login and should_login) # 同时是登录类，又需要登录，这怎么可能呢
+
         bind_methods = bind_methods or {}
 
-        base_handler =  self.__made_base_handler(host, url, base_handler) # 根据url来生成一个类
+        base_handler =  handler or self.__made_base_handler(host, url, base_handler) # 根据url来生成一个类
 
         for method_name, method_instance in bind_methods.items():
             setattr(base_handler, method_name, method_instance)
 
+
         method = method or 'GET'
         kwargs = kwargs or {}
+
+        if handler:
+            self.add_handlers(host, [(url, handler, kwargs), ])
+            return
 
         if is_login:
             self.settings['login_url'] = url
@@ -1276,7 +1414,6 @@ class DebugHandler(RequestHandler):
                 cat_request_params = self._cat_request_params)
 
 
-
     def get_static_url(self, file_path):
         static_url_path = self.kwargs['static_url_path']
         return os.path.join(static_url_path, file_path)
@@ -1296,12 +1433,9 @@ class DebugHandler(RequestHandler):
         request_params.update(public_request_params)
         return request_params
 
-    def __generate_abspath(self, *p):
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                *p)
 
     def get_template_path(self):
-        return self.__generate_abspath('template')
+        return self._generate_abspath('template')
 
 from gale.server import HTTPServer
 
@@ -1312,10 +1446,15 @@ class _HANDLER_LIST(list):
 HANDLER_LIST = _HANDLER_LIST()
 
 def router(*args, **kwargs):
-    def wraps(method_func):
+    def wraps(method_func = None):
         HANDLER_LIST.append((method_func, args, kwargs))
 
-    return wraps
+    handler = kwargs.get('handler')
+
+    if handler:
+        wraps()
+    else:
+        return wraps
 
 def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {}, host = '', port = 8080, processes = 0):
     """在这里的app_path决定着默认template和static_path，默认是执行脚本程序时的工作目录"""
@@ -1325,8 +1464,12 @@ def app_run(app_path = None, settings = {}, log_settings={}, server_settings = {
 
     app = Application(settings = settings, 
             log_settings = log_settings)
+
     for handler_func, args, kwargs in HANDLER_LIST:
-        app.router(*args, **kwargs)(handler_func)
+        if handler_func:
+            app.router(*args, **kwargs)(handler_func)
+        else:
+            app.router(*args, **kwargs)
 
     http_server = HTTPServer(app, host = host, port = port, **server_settings)
     http_server.run(processes = processes)
