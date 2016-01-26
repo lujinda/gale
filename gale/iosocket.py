@@ -57,7 +57,8 @@ class IOSocket():
 
     def recv(self, buffer_size):
         try:
-            return self._socket.recv(buffer_size)
-        except Exception:
+            chunk = self._socket.recv(buffer_size)
+            return chunk
+        except Exception as ex:
             return None
 

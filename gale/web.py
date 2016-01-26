@@ -855,7 +855,6 @@ class ErrorHandler(RequestHandler):
         status_code = self.kwargs.get('status_code', 500)
         raise HTTPError(status_code)
 
-@single_pattern
 class Application(object):
     _buffer_stringio = s_io()
     _template_cache = {}
@@ -894,7 +893,7 @@ class Application(object):
                     gale_static_path}))
 
         if 'session_manager'  in settings:
-            self.session_manger = settings['session_manger']
+            self.session_manager = settings['session_manager']
 
         vhost_handlers = vhost_handlers or [('.*$', handlers)]
         self.vhost_handlers = []
@@ -1239,7 +1238,6 @@ class StaticFileHandler(RequestHandler):
     def get_cache_version(self, absolute_path):
         _cache = self._md5_cache.get(absolute_path)
         if not _cache:
-            print('no cache')
             return None
 
         if self.file_stat().st_mtime != _cache['mtime']: # 如果已经修改过了，则表示已经更新了，则需要重新计算hash值

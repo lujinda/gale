@@ -62,7 +62,10 @@ class WebSocketConnection(object):
 
     def recv_frame_data(self):
         frame = ObjectDict()
-        self._on_frame_header(self.recv_bytes(2), frame)
+        _header_data = self.recv_bytes(2)
+        if not _header_data:
+            return None
+        self._on_frame_header(_header_data, frame)
 
 
         if frame.payload_len < 126:
@@ -86,10 +89,15 @@ class WebSocketConnection(object):
         bin_frame += struct.pack(b'B', (frame.fin << 7)  + frame.opcode)
         payload_len = len(frame.data)
 
-        bin_frame += struct.pack(b'B', min(payload_len, 127))
-        if payload_len == 126:
+        if payload_len < 126:
+            bin_frame += struct.pack(b'B', payload_len)
+
+        elif payload_len <= 0xffff:
+            bin_frame += struct.pack(b'B', 126)
             bin_frame += struct.pack(b'!H', payload_len)
-        elif payload_len == 127:
+
+        else:
+            bin_frame += struct.pack(b'B', 127)
             bin_frame += struct.pack(b'!Q', payload_len)
 
         bin_frame += frame.data
@@ -101,7 +109,8 @@ class WebSocketConnection(object):
             return b''
 
         chunk = self.stream.recv(size)
-        if (not chunk):
+
+        if not chunk:
             raise WebSocketError('connection closed')
 
         has_much = size - len(chunk) # 因为一次只能获取65536长度的数据，所以需要检测下有没有余下的
@@ -153,7 +162,7 @@ class WebSocketHandler(RequestHandler):
                 self.__websocket_key, self)
         try:
             self._websocket_conn.accept()
-        except WebSocketError:
+        except WebSocketError as ex:
             self._websocket_conn.close()
 
     def on_open(self):

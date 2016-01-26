@@ -51,7 +51,6 @@ def param_encode(param):
     if isinstance(param, unicode):
         return param.encode('utf-8')
 
-
 if is_py3:
     native_str = to_unicode
 else:

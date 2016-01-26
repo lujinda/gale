@@ -447,7 +447,7 @@ class _CodeWriter(object):
             ancestors = ["%s:%d" % (tmpl.name, lineno)
                          for (tmpl, lineno) in self.include_stack]
             line_comment += ' (via %s)' % ', '.join(reversed(ancestors))
-        print("    " * indent + line + line_comment, file=self.file)
+        print("    " * indent + escape.utf8(line) + escape.utf8(line_comment), file=self.file)
 
 
 class _TemplateReader(object):
