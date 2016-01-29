@@ -26,7 +26,7 @@ class WebSocketConnection(object):
         self.websocket_key = websocket_key
         self.handler = handler
         self.stream = handler.request.connection
-        self.stream.set_timeout(9999)
+        self.stream.set_timeout(100)
         self.closed = False
         self.close_status = None
         self.close_reason = None
