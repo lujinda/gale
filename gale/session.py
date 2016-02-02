@@ -73,11 +73,11 @@ class ISessionManager(object):
         return session
 
     def _fetch(self, session_id):
-        raise ImportError
+        raise NotImplementedError
 
     def set(self, request_handler, session):
-        request_handler.set_signed_cookie(self.session_id_key, session.session_id)
-        request_handler.set_signed_cookie(self.session_verify_key, session.hmac_key)
+        request_handler.set_signed_cookie(self.session_id_key, session.session_id, expires_day = 30)
+        request_handler.set_signed_cookie(self.session_verify_key, session.hmac_key, expires_day = 30)
         self.save_session(session)
 
     def flush(self, request_handler, session):
@@ -86,10 +86,10 @@ class ISessionManager(object):
         self.remove_session(session)
 
     def save_session(self, session):
-        raise ImportError
+        raise NotImplementedError
 
     def remove_session(self, session):
-        raise ImportError
+        raise NotImplementedError
 
     def _generate_id(self):
         _id = 'GALE%s' % hashlib.sha1(utf8(self.session_secret) + utf8(str(uuid.uuid4()))).hexdigest()
