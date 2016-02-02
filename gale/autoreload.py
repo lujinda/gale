@@ -8,6 +8,7 @@
 import sys
 import os
 import signal
+from gale import utils
 
 modify_times = {}
 
@@ -25,6 +26,7 @@ def __check_modify(modify_times, path):
         __reload_files()
 
 def __reload_files():
+    utils.stop_share_dict()
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 def check_files():

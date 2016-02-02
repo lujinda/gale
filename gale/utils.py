@@ -139,6 +139,9 @@ __mgr = Manager()
 def ShareDict(*args, **kwargs):
     return __mgr.dict(*args, **kwargs)
 
+def stop_share_dict():
+    __mgr.shutdown()
+
 from gale.py_ver import is_py3
 unicode_type = is_py3 and str or unicode
 
