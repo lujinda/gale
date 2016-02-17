@@ -5,5 +5,5 @@
 # Last modified   : 2015-03-25 13:19:19
 # Filename        : __init__.py
 # Description     : 
-version = '4.0'
+version = '4.1'
 

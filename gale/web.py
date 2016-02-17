@@ -725,7 +725,7 @@ class RequestHandler(object):
 class _FileItem(object):
     def __init__(self, root, relative_path):
         self.root = root
-        self.relative_path = relative_path
+        self.relative_path = relative_path or '/'
 
     @property
     def pretty_name(self):
@@ -829,6 +829,7 @@ class FileHandler(RequestHandler):
         self.deny_re_list = [re.compile(deny_exp) for deny_exp in deny_list]
 
     def GET(self, relative_path = '/'):
+        relative_path = relative_path or '/'
         if relative_path.startswith('./'):
             self.raise_error(403)
 
