@@ -80,6 +80,13 @@ def get_port():
 
     return 5000
 
-load_worker = LoadWorker(target_host = '127.0.0.1', password = '123', reconnect_interval = 5)
-app_run(settings = {'debug': True, 'gzip': False, 'cookie_secret': '123', 'cache_manager': MemCacheManager(expire = 1000)}, processes = 1,  port = get_port(), server_settings = {'load_worker': load_worker})
+load_worker = LoadWorker(target_host = '127.0.0.1', password = '123')
+app_run(settings = {'debug': True, 
+        'gzip': False, 
+        'cookie_secret': '123', 
+        'cache_manager': MemCacheManager(expire = 1000)}, 
+        processes = 1,  
+        port = get_port(), 
+        server_settings = {'load_worker': load_worker},
+            )
 

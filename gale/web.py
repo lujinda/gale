@@ -14,7 +14,7 @@ from gale.http import  HTTPHeaders
 from gale.e import HasFinished, NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
 from gale.utils import  parse_request_range, single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, format_timestamp, code_mess_map # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str, to_unicode
-from gale.log import access_log, config_logging
+from gale.log import (access_log, config_logging, generate_request_log)
 from gale import template, cache
 from gale.ipc import IPCDict
 from gale.session import FileSessionManager
@@ -416,7 +416,7 @@ class RequestHandler(object):
             if hasattr(self, '_new_cookie'):
                 for cookie in self._new_cookie.values():
                     self.add_header('Set-Cookie', cookie.OutputString())
-            _headers = self._headers.get_response_headers_string(self.__response_first_line) # 把http头信息生成字符串
+            _headers = self._headers.get_response_headers_string(self.response_first_line) # 把http头信息生成字符串
             self.request.connection.send_headers(_headers)
 
         self._flush_body(_response_body)
@@ -430,12 +430,7 @@ class RequestHandler(object):
         del _buffer
 
     def log_print(self):
-        _log = "{method} {path} {response_first_line} {client_ip} {request_time}".format(
-                method = self.request.method, path = self.request.uri,
-                response_first_line = self.__response_first_line,
-                client_ip = self.client_ip,
-                request_time = "%.2f%s" % (self.request.request_time * 1000, 'ms')
-                )
+        _log = generate_request_log(self)
 
         # 根据不同的http状态代码来输出不同的日志 
         if self._status_code < 400:
@@ -475,6 +470,12 @@ class RequestHandler(object):
 
     def set_default_header(self, name, value):
         self._headers.set_default_header(name, value)
+
+    def get_been_set_header(self, name, default = ''):
+        try:
+            return self._headers[name]
+        except KeyError:
+            return default
 
     def set_header(self, name, value):
         if value == None:
@@ -592,7 +593,7 @@ class RequestHandler(object):
         """把异常信息推送出去"""
         exc = utf8(exc)
         self._push_buffer = []
-        self.push(self.__response_first_line)
+        self.push(self.response_first_line)
         if not self.settings.get('debug', False): # 只允许 在debug情况下输出错误
             return
 
@@ -606,7 +607,7 @@ class RequestHandler(object):
         return self.status_message or code_mess_map.get(self._status_code) # 如果没有自定义状态代码描述的话，就根据标准来
     
     @property
-    def __response_first_line(self):
+    def response_first_line(self):
         _message = self._status_mess
         if not _message:
             raise ErrorStatusCode
@@ -729,10 +730,14 @@ class _FileItem(object):
     @property
     def pretty_name(self):
         basename = self.relative_path
-        if self.isdir:
+        if self.isdir and self.relative_path[-1] != '/':
             return basename + '/'
         else:
             return basename
+
+    @property
+    def showpath(self):
+        return os.path.join(self.root, self.relative_path)
 
     @property
     def dirname(self):
@@ -806,14 +811,31 @@ class _FileItem(object):
 class FileHandler(RequestHandler):
     """
     列出所有本地所有文件及目录
+    kwargs
+        root: 本地文件目录
+        show_hidden: 显示隐藏文件(默认False)
+        hidden_list: 隐藏部分文件(正则表达式)
+        deny_list: 禁止部分文件访问(正则表达式)
+        deny_hidden: 禁止hidden_list的文件
     """
+    def init_data(self):
+        hidden_list = self.kwargs.get('hidden_list', [])
+        deny_list = self.kwargs.get('deny_list', [])
+
+        if self.kwargs.get('deny_hidden'):
+            deny_list.extend(hidden_list)
+
+        self.hidden_re_list = [ re.compile(hidden_exp) for hidden_exp in hidden_list]
+        self.deny_re_list = [re.compile(deny_exp) for deny_exp in deny_list]
 
     def GET(self, relative_path = '/'):
         if relative_path.startswith('./'):
             self.raise_error(403)
 
+        self.relative_path = relative_path
+
         item = _FileItem(self.root, relative_path)
-        if not item.isexist:
+        if not (item.isexist and self.allow_account(item)):
             self.raise_error(404)
 
         elif item.isfile:
@@ -823,19 +845,25 @@ class FileHandler(RequestHandler):
             self.render('files.html', items = self.ls(item.dirname), 
                     relative_path = relative_path, parent = item.dirname)
 
-    def allow_show(self, item):
+    def allow_account(self, item):
+        item_urlpath = os.path.join(self.relative_path, item.pretty_name)
+        return not any([deny_re.search(item_urlpath) for deny_re in self.deny_re_list])
 
-        allow_hiddent = self.kwargs.get('hiddent', False)
+    def allow_show(self, item):
+        allow_hiddent = self.kwargs.get('show_hidden', False)
         if (not allow_hiddent) and item.ishidden:
             return False
 
-        return True
+        item_urlpath = os.path.join(self.relative_path, item.pretty_name)
+        return not any([hidden_re.search(item_urlpath) for hidden_re in self.hidden_re_list])
 
     def ls(self, dir_path):
         items = []
 
         for item_name in os.listdir(dir_path):
             new_item = _FileItem(dir_path, item_name)
+
+
             if not self.allow_show(new_item):
                 continue
 

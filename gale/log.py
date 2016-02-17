@@ -51,3 +51,26 @@ def config_logging(log_settings):
     access_log.setLevel(stream_handler.level) # 如果只是addHandler的话access_log的日志等级是没有被设置过的，也就默认的WARNING
     gen_log.setLevel(stream_handler.level) 
 
+    if 'request_format' in log_settings:
+        access_log.request_format = log_settings['request_format']
+
+def generate_request_log(handler):
+    log_format_string = getattr(access_log, 'request_format',
+            '{start_timestamp} {first_line} {status_code} {client_ip} {request_time}')
+
+    request = handler.request
+
+    return log_format_string.format(
+            start_timestamp = request.start_time,
+            method = request.method,
+            uri = request.uri,
+            path = request.path,
+            client_ip = request.client_ip,
+            status_code = handler.get_status(),
+            first_line = request.first_line,
+            version = request.version,
+            body_size = request.size,
+            response_size = handler.get_been_set_header('Content-Length'),
+            request_time = "%.2fms" % (request.request_time * 1000, ),
+            )
+

@@ -10,9 +10,12 @@ from gale import utils
 
 
 class LoadWorker(object):
-    def __init__(self, target_host, password, target_port = 1201, ):
+    def __init__(self, target_host, password, target_port = 1201):
         self.target_host = target_host
         self.target_port = target_port
         self.password = password
         self._socket = utils.get_gale_socket()
+
+    def run(self):
+        pass
 

@@ -10,7 +10,13 @@ from __future__ import print_function, unicode_literals
 from gale import web
 
 
-web.router('/dl(.*)', handler = web.FileHandler, kwargs = {'root': '/data/', 'hidden': True})
+web.router('/dl(.*)', handler = web.FileHandler, 
+        kwargs = {
+            'root': '/data/', 
+            'show_hidden': False,
+            'hidden_list': [r'/.*?/gale/$'],
+            'deny_hidden': True,
+            })
 
 web.app_run(processes = 1)
 

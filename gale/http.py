@@ -38,6 +38,16 @@ class HTTPRequest():
         self._body_arguments = {}
         self.client_ip = self.__remote_ip()
 
+    @property
+    def size(self):
+        """return requesty body size"""
+        return len(self.body)
+
+    @property
+    def first_line(self):
+        return "{method} {uri} {version}".format(
+                method = self.method, uri = self.uri, version = self.version)
+
     def _parse_body(self):
         content_type = self.headers.get(u'Content-Type', '')
 
@@ -96,6 +106,10 @@ class HTTPRequest():
 
 
         return _remote_ip
+
+    @property
+    def start_time(self):
+        return self._start_time
 
     @property
     def request_time(self):
