@@ -2,10 +2,8 @@
 #coding:utf-8
 # Author        : tuxpy
 # Email         : q8886888@qq.com.com
-# Last modified : 2015-05-02 12:18:07
-# Filename      : version.py
+# Last modified : 2016-02-18 21:18:52
+# Filename      : running.py
 # Description   : 
-import sys
-is_py3 = sys.version[0] == '3'
-
+from __future__ import print_function
 
