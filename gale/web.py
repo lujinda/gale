@@ -808,6 +808,10 @@ class _FileItem(object):
         abspath = os.path.join(self.root, path)
         return abspath
 
+class RedirectHandler(RequestHandler):
+    def GET(self):
+        self.redirect(**self.kwargs)
+
 class FileHandler(RequestHandler):
     """
     列出所有本地所有文件及目录
