@@ -25,7 +25,7 @@ app = Application(handlers = [
     (r'/conn', ConnHandler),
     ], settings = {'debug': True})
 
-@app.router(url = '/')
+@app.router(url = '/', method = ['POST', 'DELETE'])
 def index(self):
     self.render('websocket.html')
 

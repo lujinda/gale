@@ -8,7 +8,7 @@
 from __future__ import print_function
 
 __ALL__ = ['version']
-version = '4.3'
+version = '4.5'
 
 
 def run_env_check():

@@ -99,11 +99,11 @@ class HTTPRequest():
         return False
 
     def __remote_ip(self):
-        if self.real_ip: _remote_ip = self.headers.get("X-Real-IP", 
+        if self.real_ip: 
+            _remote_ip = self.headers.get("X-Real-IP", 
                 self.headers.get("X-Forwarded-For", self.connection.remote_ip()))
         else:
             _remote_ip = self.connection.remote_ip()
-
 
         return _remote_ip
 

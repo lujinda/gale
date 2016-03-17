@@ -28,7 +28,8 @@ class CacheHandler(RequestHandler):
 
 @router(url = '/', method = 'GET')
 def index(self):
-    self.res_body + 'ok'
+    print(self.query)
+    self.body + 'ok'
 
 def load_js(self):
     return 'js'

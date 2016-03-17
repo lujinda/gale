@@ -10,12 +10,12 @@ try:
 except ImportError:
     import http.cookies as Cookie
 
+from gale import template, cache
 from gale.http import  HTTPHeaders
 from gale.e import HasFinished, NotSupportMethod, ErrorStatusCode, MissArgument, HTTPError, LoginHandlerNotExists, LocalPathNotExist, CookieError, CacheError
 from gale.utils import  parse_request_range, single_pattern, is_string, urlsplit, urlquote, urlunquote, ShareDict, made_uuid, get_mime_type, format_timestamp, code_mess_map # 存的是http响应代码与信息的映射关系
 from gale.escape import utf8, param_decode, native_str, to_unicode
 from gale.log import (access_log, config_logging, generate_request_log)
-from gale import template, cache
 from gale.ipc import IPCDict
 from gale.session import FileSessionManager
 from gale.restapi import RestApi
@@ -65,21 +65,23 @@ class ResponseBody(object):
     def __add__(self, value):
         self.handler.push(value)
 
+class ResponseBodyBuffer(list):
+    def __add__(self, _buffer):
+        print(_buffer)
+
 class RequestHandler(object):
     """主要类，在这里完成对用户的请求处理并返回"""
-    res_body = ResponseBody()
     def __init__(self, application, request, kwargs = None):
         self.kwargs = kwargs or {}
         self.application = application
         self.request = request
-        self._push_buffer = []
         self.cache_page = False
         self.response_body = None
         self._finished = False
         self._headers = HTTPHeaders()
         self._buffer_md5 = hashlib.md5()
-        self.body = ParamsObject(self.request.body_arguments)
         self.query = ParamsObject(self.request.query_arguments)
+        self._body = BodyParamsResponseObject(self.request.body_arguments)
         self.__been_writen_headers = False
         self.__is_sending_file = True # 表示正在发送文件， flush_body的方式会改变
         self.request.connection.on_close_callback = self.on_connect_close
@@ -89,6 +91,14 @@ class RequestHandler(object):
 
         self.init_data()
         self.init_headers()
+
+    @property
+    def body(self):
+        return self._body
+
+    @body.setter
+    def body(self, _buffer):
+        self._body.set_buffer(_buffer)
 
     def init_data(self):
         """一些初始化工作都可以在这做"""
@@ -103,6 +113,10 @@ class RequestHandler(object):
             })
         self.set_status(200)
 
+    @property
+    def allow_methods(self):
+        return [ method for method in _ALL_METHOD if hasattr(self, method)]
+
     def set_default_headers(self):
         """可以在这里设置一些默认的headers信息(使用set_header[s])"""
         pass
@@ -110,6 +124,8 @@ class RequestHandler(object):
     def ALL(self, *args, **kwargs):
         pass
 
+    """
+    # 当http request到来时，会自动调用Handler下的对应方法
     def HEAD(self, *args, **kwargs):
         raise NotSupportMethod
 
@@ -124,6 +140,7 @@ class RequestHandler(object):
 
     def PUT(self, *args, **kwargs):
         raise NotSupportMethod
+    """
 
     @property
     def server_settings(self):
@@ -156,7 +173,7 @@ class RequestHandler(object):
         _buffer = utf8(_buffer)
         if self.settings.get('dynamic_304', True):
             self._buffer_md5.update(_buffer)
-        self._push_buffer.append(_buffer)
+        self.body + _buffer
 
     def is_supported_http1_1(self):
         return self.request.version == 'HTTP/1.1'
@@ -169,7 +186,7 @@ class RequestHandler(object):
         if not status_code:
             status_code = temp and 302 or 301 # 如果没有指定 status_code， 则根据是否是临时重定向来决定code
 
-        if bool(self._push_buffer):
+        if not self.body.empty():
             raise Exception("Can't redirect after push")
         assert isinstance(status_code ,int) and (300 <= status_code <= 399)
         self.set_status(status_code)
@@ -254,7 +271,7 @@ class RequestHandler(object):
 
     def send_file(self, attr_path, attr_name = None, charset = 'utf-8', speed = None, is_attr = True):
         """speed: 下载速度, 单位是字节B"""
-        if bool(self._push_buffer):
+        if not self.body.empty():
             raise Exception("Can't redirect after push")
 
         if not os.path.isfile(attr_path):
@@ -297,7 +314,7 @@ class RequestHandler(object):
                 if sleep_secs:
                     gevent.sleep(sleep_secs)
 
-            self._push_buffer = []
+            self.body.flush_buffer()
 
     def create_template_loader(self, template_path = None):
         return template_path and template.Loader(template_path) or template.StringLoader()
@@ -406,7 +423,7 @@ class RequestHandler(object):
         if self.request.connection.closed:
             return
 
-        _buffer = _buffer or b''.join(self._push_buffer)
+        _buffer = _buffer or self.body.to_bytes()
         _response_body = self.process_buffer(_buffer)
 
         if self.__been_writen_headers == False:
@@ -420,7 +437,7 @@ class RequestHandler(object):
             self.request.connection.send_headers(_headers)
 
         self._flush_body(_response_body)
-        self._push_buffer = []
+        self.body.flush_buffer()
 
         if self.cache_page and self._status_code in (200, 304):
             self.response_body = _buffer
@@ -592,7 +609,7 @@ class RequestHandler(object):
     def send_error(self, exc):
         """把异常信息推送出去"""
         exc = utf8(exc)
-        self._push_buffer = []
+        self.body.flush_buffer()
         self.push(self.response_first_line)
         if not self.settings.get('debug', False): # 只允许 在debug情况下输出错误
             return
@@ -940,6 +957,7 @@ class Application(object):
                 _url, _hdl = default_handler
                 self.default_handlers.append([self.__re_compile(_url),
                     _hdl, {}])
+
             elif len(default_handler) == 3:
                 _url, _hdl, _kwargs = default_handler
                 self.default_handlers.append([self.__re_compile(_url),
@@ -999,7 +1017,12 @@ class Application(object):
 
     def __exec_request(self, handler, request, *args, **kwargs):
         handler.ALL(*args, **kwargs) #  所有请求前都要先执行它
-        _method_func = getattr(handler, request.method) 
+        _method_func = getattr(handler, request.method, None) 
+        if not _method_func:
+            handler.set_header('Allow', 
+                    ', '.join(handler.allow_methods))
+            raise NotSupportMethod
+
         _method_func(*args, **kwargs)
 
     def __find_handler(self, request):
@@ -1429,6 +1452,35 @@ class ParamsObject(object):
 
     def __getattr__(self, name):
         return self[name]
+
+    def __repr__(self):
+        return json.dumps(self._params, indent = 4)
+
+class BodyParamsResponseObject(ParamsObject):
+    def __init__(self, params):
+        self._buffer = []
+        super(BodyParamsResponseObject, self).__init__(params)
+
+    def append_buffer(self, _buffer):
+        self._buffer.append(utf8(_buffer))
+
+    def set_buffer(self, _buffer):
+        self._buffer = []
+
+        if not _buffer:
+            self.append_buffer(_buffer)
+
+    def empty(self):
+        return self._buffer == []
+
+    def to_bytes(self):
+        return b''.join(self._buffer)
+
+    def __add__(self, _buffer):
+        self.append_buffer(_buffer)
+
+    def flush_buffer(self):
+        self._buffer = []
 
 class DebugHandler(RequestHandler):
     def ALL(self):

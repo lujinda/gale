@@ -165,6 +165,9 @@ class WebSocketHandler(RequestHandler):
         except WebSocketError as ex:
             self._websocket_conn.close()
 
+    def close(self):
+        self._websocket_conn.close()
+
     def on_open(self):
         pass
 
