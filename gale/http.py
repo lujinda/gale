@@ -37,6 +37,7 @@ class HTTPRequest():
         self.files = {}
         self._body_arguments = {}
         self.client_ip = self.__remote_ip()
+        self.client_port = self.connection.remote_port()
 
     @property
     def size(self):

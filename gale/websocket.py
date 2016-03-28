@@ -53,6 +53,9 @@ class WebSocketConnection(object):
                     self.close_reason = _data[2:]
                 self.close()
 
+            elif frame_data.opcode == 0x9: # on ping
+                self.handler.on_ping(frame_data)
+
     def close(self):
         if self.closed:
             return
@@ -175,6 +178,9 @@ class WebSocketHandler(RequestHandler):
         pass
 
     def on_message(self, frame):
+        pass
+
+    def on_ping(self, frame):
         pass
 
     def send_message(self, chunk):

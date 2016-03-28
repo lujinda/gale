@@ -48,14 +48,13 @@ function debug_controller($scope, $http){
         switch (content_type.toLowerCase()){
             case 'json':
                 return JSON.stringify(data);
-            case 'urlencoded':
+            default:
                 return urlencode(data);
         }
     }
     function request(options, callback){
         var method = (options.method || 'GET').toUpperCase();
         var data = options.data;
-        delete options.data;
         var headers = options.headers || {'User-Agent': 'tordoc online debug'};
         if (typeof(data) == 'object' && method != 'GET'){
             data = encode_data($scope.request_content_type, data);

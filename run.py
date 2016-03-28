@@ -28,6 +28,11 @@ class CacheHandler(RequestHandler):
 
 @router(url = '/', method = 'GET')
 def index(self):
+    """
+    restapi: 参数get参数
+    request:
+        test_param1: 测试参数
+    """
     print(self.query)
     self.body + 'ok'
 

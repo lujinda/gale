@@ -81,6 +81,9 @@ class HTTPConnection(IOSocket):
     def remote_ip(self):
         return self._socket.getpeername()[0]
 
+    def remote_port(self):
+        return self._socket.getpeername()[1]
+
 def get_request(connection, real_ip=True):
     """在刚连接时，获取用户的http请求信息, socket是客户端的socket"""
     if connection.is_close(): # 如果连接出错而被关闭，则返回 False，立刻结束本此请求
