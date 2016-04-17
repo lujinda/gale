@@ -52,6 +52,18 @@ re_signed_cookie = re.compile(r'^\|\d+')
 
 BUFFER_SIZE = 4096 * 10
 
+def auth_401(method):
+    @wraps(method)
+    def wrap(self, *args, **kwargs):
+        if self.current_user:
+            return method(self, *args, **kwargs)
+        else:
+            self.set_header('WWW-Authenticate', "Basic realm='Please input'")
+            raise HTTPError(401)
+
+    return wrap
+
+
 class ResponseBody(object):
     """This is RequestHandler.push syntactic sugar"""
     def __set__(self, handler, value):
@@ -850,16 +862,17 @@ class FileHandler(RequestHandler):
 
         self.hidden_re_list = [ re.compile(hidden_exp) for hidden_exp in hidden_list]
         self.deny_re_list = [re.compile(deny_exp) for deny_exp in deny_list]
-        self.base_username = self.kwargs.get('base_username', None)
-        self.base_password = self.kwargs.get('base_password', None)
+        self.base_username = self.kwargs.get('base_username')
+        self.base_password = self.kwargs.get('base_password')
 
+    def GET(self, relative_path = '/'):
         if self.base_username and self.base_password:
-            self.GET = types.MethodType(auth_401(self._GET), self)
+            auth_401(self.__class__._GET)(self, relative_path)
 
         else:
-            self.GET = self._GET
+            self._GET(relative_path)
 
-    def _GET(self, relative_path = '/'):
+    def _GET(self, relative_path):
         relative_path = relative_path or '/'
         if relative_path.startswith('./'):
             self.raise_error(403)
@@ -1177,17 +1190,6 @@ def authenticated(method):
                 self.redirect(login_url + url_joiner + 'callback=' + callback_url)
             else:
                 raise HTTPError(403)
-
-    return wrap
-
-def auth_401(method):
-    @wraps(method)
-    def wrap(self, *args, **kwargs):
-        if self.current_user:
-            return method(self, *args, **kwargs)
-        else:
-            self.set_header('WWW-Authenticate', "Basic realm='Please input'")
-            raise HTTPError(401)
 
     return wrap
 
