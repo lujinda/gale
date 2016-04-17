@@ -32,7 +32,7 @@ import gzip
 import re
 import base64
 import gevent
-
+import types
 
 try:
     from cStringIO import StringIO as s_io
@@ -838,6 +838,8 @@ class FileHandler(RequestHandler):
         hidden_list: 隐藏部分文件(正则表达式)
         deny_list: 禁止部分文件访问(正则表达式)
         deny_hidden: 禁止hidden_list的文件
+        base_username: 401用户名
+        base_password: 401密码
     """
     def init_data(self):
         hidden_list = self.kwargs.get('hidden_list', [])
@@ -848,8 +850,16 @@ class FileHandler(RequestHandler):
 
         self.hidden_re_list = [ re.compile(hidden_exp) for hidden_exp in hidden_list]
         self.deny_re_list = [re.compile(deny_exp) for deny_exp in deny_list]
+        self.base_username = self.kwargs.get('base_username', None)
+        self.base_password = self.kwargs.get('base_password', None)
 
-    def GET(self, relative_path = '/'):
+        if self.base_username and self.base_password:
+            self.GET = types.MethodType(auth_401(self._GET), self)
+
+        else:
+            self.GET = self._GET
+
+    def _GET(self, relative_path = '/'):
         relative_path = relative_path or '/'
         if relative_path.startswith('./'):
             self.raise_error(403)
@@ -866,6 +876,14 @@ class FileHandler(RequestHandler):
         else:
             self.render('files.html', items = self.ls(item.dirname), 
                     relative_path = relative_path, parent = item.dirname)
+
+    def get_current_user(self):
+        username, password = self.get_401_user_pwd()
+        if username == self.base_username and password == self.base_password:
+            return username
+
+        else:
+            return None
 
     def allow_account(self, item):
         item_urlpath = os.path.join(self.relative_path, item.pretty_name)
@@ -1504,8 +1522,7 @@ class DebugHandler(RequestHandler):
         return os.path.join(static_url_path, file_path)
 
     def _cat_response_params(self, response_params):
-        if not response_params:
-            return {}
+        response_params = response_params or {}
         public_response_params = self.settings.get('restapi_public_response', {})
         response_params.update(public_response_params)
 

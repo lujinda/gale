@@ -16,6 +16,8 @@ web.router('/dl(.*)', handler = web.FileHandler,
             'show_hidden': False,
             'hidden_list': [r'/.*?/gale/$'],
             'deny_hidden': True,
+            'base_username': 'tuxpy',
+            'base_password': 'zxc123',
             })
 
 web.app_run(processes = 1)

@@ -44,7 +44,7 @@ def config_logging(log_settings):
             logging.DEBUG))
         formatter_class = isinstance(_handler, logging.StreamHandler) and ColorLogFormatter or logging.Formatter
         formatter = formatter_class('%(asctime)s %(filename)s [%(process)d] %(levelname)s %(message)s',
-                datefmt = log_settings.get('datefmt', '%Y-%m-%d %H:%M:%s'))
+                datefmt = log_settings.get('datefmt', '%Y-%m-%d %H:%M:%S'))
 
         _handler.setFormatter(formatter)
         access_log.addHandler(_handler)
