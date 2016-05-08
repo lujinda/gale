@@ -33,7 +33,8 @@ def index(self):
     request:
         test_param1: 测试参数
     """
-    print(self.query)
+    print(self.get_signed_cookie('name'))
+    self.set_signed_cookie('name', 'ljd')
     self.body + 'ok'
 
 def load_js(self):
@@ -93,6 +94,5 @@ app_run(settings = {'debug': True,
         'cache_manager': MemCacheManager(expire = 1000)}, 
         processes = 1,  
         port = get_port(), 
-        server_settings = {'load_worker': load_worker},
             )
 

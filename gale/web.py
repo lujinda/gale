@@ -1399,15 +1399,15 @@ class _UINameSpace(object):
         _module_instance = _module(self.handler)
         return _module_instance.render
 
-def create_cookie_signature(secret):
-    hash_obj = hmac.new(utf8(secret),digestmod =  hashlib.sha256)
+def create_cookie_signature(secret, value_b64encoded):
+    hash_obj = hmac.new(utf8(secret), value_b64encoded, digestmod =  hashlib.sha256)
     return utf8(hash_obj.hexdigest()).upper()
 
 def encode_signed_cookie(secret, name, value):
     name = utf8(name)
     value = utf8(value)
     value = base64.b64encode(value)
-    signed_secret = create_cookie_signature(secret)
+    signed_secret = create_cookie_signature(secret, value)
     signed_cookie = "|%s:%s|%s:%s%s" %(
             len(name), name, len(value), value, signed_secret)
 
@@ -1432,7 +1432,7 @@ def decode_signed_cookie(secret, name, value):
         return None
 
 
-    if create_cookie_signature(secret) != rest:
+    if create_cookie_signature(secret, field_value) != rest:
         return None
 
     return base64.b64decode(field_value)
